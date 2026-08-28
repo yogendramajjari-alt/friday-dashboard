@@ -1,9 +1,12 @@
-"""JARVIS-themed read-only mirror of the Master Agent dashboard.
+"""JARVIS-themed mirror of the Master Agent dashboard.
 
-This process never imports, edits, or touches any file under master-agent/.
-It only calls master-agent's already-public http://127.0.0.1:9000/api/status
-endpoint over plain HTTP -- exactly like a browser tab would -- and renders
-that same live data inside the JARVIS 24 visual theme.
+This process never imports or touches any file under master-agent/. It only
+calls master-agent's own public HTTP endpoints -- exactly like a browser tab
+would -- and renders that data inside the JARVIS 24 visual theme. Read-only
+for everything except one deliberate exception, triggered only via chat, by
+name: POST-ing to master-agent's own /api/restart/<id> to restart an agent
+already on ITS fixed allowlist (restart_commands.py) -- this process holds
+no restart logic of its own, it just calls that endpoint.
 
 Two ways this data can reach the page, so the SAME code runs both locally
 and as a cloud deployment:
@@ -184,14 +187,49 @@ def read_own_env(var_name):
     return None
 
 
+MASTER_AGENT_RESTART_URL = "http://127.0.0.1:9000/api/restart/{}"
+RESTART_VERBS = ("restart", "reboot", "relaunch", "wake up", "wake it up", "bring back", "bring up", "start it")
+
+
+def detect_restart_intent(message, agents):
+    """Deterministic, not LLM-based -- reliability matters more than
+    flexibility for an action that actually launches a process. Only
+    matches when a restart-ish verb AND a specific agent name/id both
+    appear in the same message; returns None otherwise (falls through to
+    the normal read-only chat)."""
+    text = (message or "").lower()
+    if not any(v in text for v in RESTART_VERBS):
+        return None
+    for a in agents:
+        name = (a.get("name") or "").lower()
+        id_spaced = (a.get("id") or "").replace("_", " ")
+        if name and name in text:
+            return a
+        if id_spaced and id_spaced in text:
+            return a
+    return None
+
+
+def call_master_agent_restart(agent_id):
+    try:
+        resp = requests.post(MASTER_AGENT_RESTART_URL.format(agent_id), timeout=15)
+        payload = resp.json()
+        return bool(payload.get("ok")), payload.get("message") or "No message returned."
+    except Exception as exc:
+        return False, f"Couldn't reach master-agent's restart endpoint: {exc}"
+
+
 def build_friday_instructions(vm):
     lines = [
         "You are FRIDAY, a voice-and-chat co-pilot embedded inside a live automation dashboard.",
         "You have full, live knowledge of every agent and n8n workflow below -- their status, schedule, "
         "integrations, and purpose. Answer questions about them accurately and concisely (2-4 sentences "
-        "unless asked for detail). You are strictly read-only: you can explain, summarize, and diagnose, "
-        "but you never claim to start, stop, or modify any agent -- if asked to do that, say the user needs "
-        "to do it themselves and explain where.",
+        "unless asked for detail). You are read-only for everything except one thing: if the user directly "
+        "asks to restart/wake up/relaunch a specific named agent, that request is handled before it ever "
+        "reaches you (a deterministic matcher does it, not you) -- so if you're seeing this message at all, "
+        "either no restart was requested, or the one requested isn't on the fixed allowlist. For anything "
+        "else the user asks you to *do* (send a message, run a campaign, edit a file), say plainly that you "
+        "can't and explain where they'd do it themselves.",
         "",
         f"SUMMARY: {vm['total_agents']} agents, {vm['total_workflows']} n8n workflows, "
         f"{vm['running']} running, {vm['active_247']} active 24/7, {vm['failed']} need attention.",
@@ -286,6 +324,8 @@ def build_view_model(data):
         "pct_integrations": pct(len(integration_set), max(len(integration_set), 12)),
         "pct_attention": 100 if failed == 0 else pct(failed, total_agents),
         "generated_at": data["generated_at"],
+        "new_candidates": data.get("new_candidates") or {"scanned_at": None, "count": 0, "candidates": []},
+        "morning_brief": data.get("morning_brief"),
     }
 
 
@@ -427,7 +467,22 @@ def api_chat():
                      "and none of the agents' duplicated .env keys are readable from master-agent/.env either."
         })
 
-    data, err, _source, _synced_ago = get_dashboard_data()
+    data, err, source, _synced_ago = get_dashboard_data()
+
+    if not err:
+        intent = detect_restart_intent(user_message, data["agents"])
+        if intent:
+            if source != "local":
+                reply = (
+                    f"I can only restart {intent['name']} when I'm running locally on the same "
+                    "desktop as the agents -- right now you're on the hosted mirror. Open FRIDAY "
+                    "at http://127.0.0.1:9100 on that desktop to do this."
+                )
+            else:
+                ok, msg = call_master_agent_restart(intent["id"])
+                reply = f"{'Done. ' if ok else 'That failed. '}{msg}"
+            return jsonify({"reply": reply})
+
     if err:
         instructions = (
             "You are FRIDAY. Master Agent's live status API is currently unreachable "

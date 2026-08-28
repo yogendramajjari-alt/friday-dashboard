@@ -183,6 +183,42 @@
 
   .roadmap-list i { color: var(--accent-orange) !important; }
 
+  #new-candidates-banner {
+    max-width: 900px;
+    margin: 0 auto 30px;
+    padding: 14px 20px;
+    border: 1px solid rgba(255,166,75,0.35);
+    background: rgba(255,166,75,0.07);
+    border-radius: 10px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  #new-candidates-banner i { color: var(--accent-orange); font-size: 1.2rem; margin-top: 2px; flex-shrink: 0; }
+  #new-candidates-banner .ncb-title { font-size: 0.8rem; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.04em; }
+  #new-candidates-banner .ncb-sub { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
+
+  #morning-brief-banner {
+    max-width: 900px;
+    margin: 0 auto 30px;
+    padding: 18px 22px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 12px;
+  }
+  #morning-brief-banner .mb-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent-b); margin-bottom: 8px;
+  }
+  #morning-brief-banner .mb-head i { font-size: 1rem; }
+  #morning-brief-banner .mb-time { margin-left: auto; color: var(--text-dim); text-transform: none; letter-spacing: normal; font-size: 0.62rem; }
+  #morning-brief-banner .mb-headline { font-size: 0.85rem; color: var(--text-bright); margin-bottom: 10px; }
+  #morning-brief-banner .mb-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  #morning-brief-banner .mb-list li { display: flex; gap: 8px; align-items: flex-start; font-size: 0.72rem; color: var(--text); }
+  #morning-brief-banner .mb-list li i { color: var(--accent-green); margin-top: 2px; flex-shrink: 0; }
+  #morning-brief-banner .mb-list.mb-attention li i { color: var(--accent-red); }
+
   .folder-tree { font-family: 'Share Tech Mono', monospace; font-size: 0.68rem; color: var(--text-dim); line-height: 1.8; white-space: pre; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 14px; overflow-x: auto; }
   .folder-tree .dir { color: var(--accent-b); }
 
@@ -665,6 +701,36 @@
   <div class="subtagline">{{ vm.total_agents }} agents + {{ vm.total_workflows }} n8n workflows &middot; {{ vm.running }} running &middot; {{ vm.active_247 }} active 24/7 &middot; {{ vm.integration_set|length }} integrations synced &middot; read-only mirror, no agent is modified by this page</div>
 </section>
 
+{% if vm.new_candidates and vm.new_candidates.count > 0 %}
+<div id="new-candidates-banner">
+  <i class="ti ti-search"></i>
+  <div>
+    <div class="ncb-title">{{ vm.new_candidates.count }} unregistered project{{ 's' if vm.new_candidates.count != 1 else '' }} found by the last auto-scan</div>
+    <div class="ncb-sub">
+      {% for c in vm.new_candidates.candidates %}{{ c.path.split('\\')[-1] }}{{ ', ' if not loop.last else '' }}{% endfor %}
+      &middot; not added automatically -- ask FRIDAY to review and register whichever are real agents
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if vm.morning_brief %}
+<div id="morning-brief-banner">
+  <div class="mb-head"><i class="ti ti-sun-high"></i> TODAY'S BRIEF <span class="mb-time">generated {{ vm.morning_brief.generated_at }}</span></div>
+  <div class="mb-headline">{{ vm.morning_brief.headline }}</div>
+  {% if vm.morning_brief.active_lines %}
+  <ul class="mb-list">
+    {% for line in vm.morning_brief.active_lines %}<li><i class="ti ti-circle-check"></i>{{ line }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if vm.morning_brief.attention_lines %}
+  <ul class="mb-list mb-attention">
+    {% for line in vm.morning_brief.attention_lines %}<li><i class="ti ti-alert-triangle"></i>{{ line }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}
+
 <div id="sections">
 
   <div class="panel span-2">
@@ -814,7 +880,7 @@
   <div class="panel">
     <div class="panel-head"><span class="panel-num">11</span><i class="ti {{ vm.panel_icons['11'] }} panel-icon"></i><span class="panel-title">Security &amp; Privacy</span></div>
     <ul class="sec-list">
-      <li><i class="ti ti-lock"></i>Read-only dashboard &mdash; never starts, stops, or edits any agent</li>
+      <li><i class="ti ti-lock"></i>Read-only for everything except one action: restarting an agent already on a fixed allowlist, only when asked by name</li>
       <li><i class="ti ti-fingerprint"></i>Each agent keeps its own .env; keys are duplicated, never hand-edited</li>
       <li><i class="ti ti-database"></i>Local SQLite/JSONL only &mdash; no data leaves this machine</li>
       <li><i class="ti ti-shield-lock"></i>This FRIDAY mirror only reads master-agent's public /api/status</li>
