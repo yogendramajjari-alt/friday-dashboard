@@ -31,12 +31,6 @@ from flask import Flask, jsonify, render_template, request
 
 MASTER_AGENT_STATUS_URL = "http://127.0.0.1:9000/api/status"
 
-# Shared secret /ingest requires (as header X-Ingest-Key) before it will
-# accept a pushed snapshot. Set FRIDAY_INGEST_KEY in the environment on
-# both the desktop pusher and wherever this app is deployed -- if it's
-# unset here, /ingest refuses everything (fails closed, not open).
-INGEST_KEY = os.environ.get("FRIDAY_INGEST_KEY")
-
 # In-memory only -- resets on process restart/redeploy, which is fine since
 # the desktop pusher re-fills it within one push cycle (~20s).
 _pushed_cache = {"data": None, "received_at": None}
@@ -322,10 +316,13 @@ def ingest():
     """Receives a master-agent /api/status snapshot pushed by this
     desktop's push_status.py. Requires a matching X-Ingest-Key header --
     fails closed if FRIDAY_INGEST_KEY isn't configured on this host at all,
-    so a forgotten env var can't silently leave this wide open."""
-    if not INGEST_KEY:
+    so a forgotten env var can't silently leave this wide open. Checked
+    fresh on every call (like the AI keys below) so it works both from a
+    real env var (Render) and this folder's own .env (desktop)."""
+    ingest_key = read_own_env("FRIDAY_INGEST_KEY")
+    if not ingest_key:
         return jsonify({"error": "FRIDAY_INGEST_KEY not configured on this host"}), 503
-    if request.headers.get("X-Ingest-Key") != INGEST_KEY:
+    if request.headers.get("X-Ingest-Key") != ingest_key:
         return jsonify({"error": "unauthorized"}), 401
     body = request.get_json(silent=True)
     if not body or "agents" not in body or "summary" not in body:
