@@ -1,0 +1,487 @@
+"""JARVIS-themed read-only mirror of the Master Agent dashboard.
+
+This process never imports, edits, or touches any file under master-agent/.
+It only calls master-agent's already-public http://127.0.0.1:9000/api/status
+endpoint over plain HTTP -- exactly like a browser tab would -- and renders
+that same live data inside the JARVIS 24 visual theme.
+
+Two ways this data can reach the page, so the SAME code runs both locally
+and as a cloud deployment:
+  1. Local fetch -- calls http://127.0.0.1:9000/api/status directly. Works
+     whenever this process is running on the same desktop as master-agent.
+  2. Pushed cache -- a separate script (push_status.py) on the desktop POSTs
+     the same JSON payload to /ingest every ~20s. When the local fetch fails
+     (e.g. this process is deployed on a cloud host, nowhere near the
+     desktop), the most recently pushed snapshot is served instead, with a
+     "synced N ago" marker so the page is honest about staleness instead of
+     pretending to be live.
+
+Run:  python app.py [port]   (default 9100) -> http://127.0.0.1:9100
+"""
+
+import json
+import os
+import sys
+import time
+import urllib.request
+from urllib.error import URLError
+
+import requests
+from flask import Flask, jsonify, render_template, request
+
+MASTER_AGENT_STATUS_URL = "http://127.0.0.1:9000/api/status"
+
+# Shared secret /ingest requires (as header X-Ingest-Key) before it will
+# accept a pushed snapshot. Set FRIDAY_INGEST_KEY in the environment on
+# both the desktop pusher and wherever this app is deployed -- if it's
+# unset here, /ingest refuses everything (fails closed, not open).
+INGEST_KEY = os.environ.get("FRIDAY_INGEST_KEY")
+
+# In-memory only -- resets on process restart/redeploy, which is fine since
+# the desktop pusher re-fills it within one push cycle (~20s).
+_pushed_cache = {"data": None, "received_at": None}
+
+# Read-only reuse of a key master-agent already duplicated (via
+# sync_integrations.py) from one of the agents' own .env files. Never
+# written to, never exposed to the browser -- only used server-side here.
+MASTER_AGENT_ENV_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "master-agent", ".env"
+)
+OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
+CHAT_MODEL = "gpt-5.5"
+ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
+ANTHROPIC_MODEL = "claude-sonnet-5"
+
+# Groq: its own key lives in this app's own .env (not duplicated from any
+# other agent -- Groq isn't used by anyone else in this workspace yet).
+JARVIS_ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
+app = Flask(__name__)
+app.jinja_env.auto_reload = True
+
+CATEGORY_ICONS = {
+    "Lead Generation": "ti-target-arrow",
+    "Database": "ti-database",
+    "Intelligence": "ti-brain",
+    "Monitoring": "ti-activity",
+    "Support Service": "ti-plug",
+    "Campaigns": "ti-speakerphone",
+    "Internal Ops": "ti-briefcase",
+}
+
+INTEGRATION_LABELS = {
+    "openai": "OpenAI",
+    "anthropic": "Anthropic",
+    "gemini": "Gemini",
+    "slack": "Slack",
+    "wati": "WATI (WhatsApp)",
+    "google_sheets": "Google Sheets",
+    "google_places": "Google Places",
+    "google_cse": "Google CSE",
+    "searchapi": "SearchApi.io",
+    "reddit": "Reddit",
+    "brand24": "Brand24",
+}
+
+INTEGRATION_ICONS = {
+    "openai": "ti-brain",
+    "anthropic": "ti-sparkles",
+    "gemini": "ti-diamond",
+    "slack": "ti-brand-slack",
+    "wati": "ti-brand-whatsapp",
+    "google_sheets": "ti-table",
+    "google_places": "ti-map-pin",
+    "google_cse": "ti-search",
+    "searchapi": "ti-search",
+    "reddit": "ti-brand-reddit",
+    "brand24": "ti-trending-up",
+}
+
+# Icon shown next to each numbered panel header (section 01-13)
+PANEL_ICONS = {
+    "01": "ti-info-circle",
+    "02": "ti-stack-2",
+    "03": "ti-sitemap",
+    "04": "ti-plug-connected",
+    "05": "ti-device-desktop",
+    "06": "ti-code",
+    "07": "ti-route",
+    "08": "ti-world",
+    "09": "ti-bolt",
+    "10": "ti-folder",
+    "11": "ti-shield-lock",
+    "12": "ti-map-2",
+    "13": "ti-list-check",
+}
+
+# Grounded roadmap items from an earlier audit of this same registry --
+# real gaps, not generic sci-fi "future enhancements".
+ROADMAP = [
+    "Configure a real .env for India Business Location Scraper (currently unconfigured -- only .env.example exists)",
+    "Consolidate the 2 duplicate 'Recycling Sector Mention Monitor (4 Keywords)' n8n workflow files into the FINAL version",
+    "News Aggregator is missing its .env file on disk (integrations detected only from the static registry, not live-scanned)",
+    "Add a real health-check history file for agents that currently report 'No run recorded yet' (Brand24 Monitor, OpenAI Lead Proxy, WhatsApp News Monitor Agent)",
+]
+
+
+def read_duplicated_keys(marker):
+    """Best-effort: pull every already-duplicated <marker> value out of
+    master-agent/.env (e.g. every distinct OPENAI_API_KEY duplicate from
+    each agent that has one). Read-only -- this file is regenerated by
+    sync_integrations.py and is never written to from here. Returns a
+    de-duplicated, order-preserved list of (source_prefix, value).
+
+    When deployed away from the desktop there is no master-agent/.env to
+    read, so a plain OPENAI_API_KEY / ANTHROPIC_API_KEY environment
+    variable (set directly on the host, e.g. Render's dashboard) is
+    treated as a single extra source too."""
+    found = []
+    seen_values = set()
+    env_direct = os.environ.get(marker)
+    if env_direct:
+        found.append(("env", env_direct))
+        seen_values.add(env_direct)
+
+    path = os.path.abspath(MASTER_AGENT_ENV_PATH)
+    if not os.path.isfile(path):
+        return found
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                val = val.strip()
+                if marker in key and val and val not in seen_values:
+                    seen_values.add(val)
+                    found.append((key, val))
+    except OSError:
+        return []
+    return found
+
+
+def read_own_env(var_name):
+    """Read a var from this app's own .env (jarvis-dashboard/.env) -- for
+    credentials that belong to this app alone (e.g. GROQ_API_KEY), not
+    duplicated from any other agent. Checks a real environment variable
+    first (how you set secrets on Render/Railway/etc. when this is
+    deployed -- there is no local master-agent/.env to duplicate from up
+    there), falling back to the local .env file for desktop use."""
+    from_env = os.environ.get(var_name)
+    if from_env:
+        return from_env
+    path = os.path.abspath(JARVIS_ENV_PATH)
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                if key.strip() == var_name and val.strip():
+                    return val.strip()
+    except OSError:
+        return None
+    return None
+
+
+def build_friday_instructions(vm):
+    lines = [
+        "You are FRIDAY, a voice-and-chat co-pilot embedded inside a live automation dashboard.",
+        "You have full, live knowledge of every agent and n8n workflow below -- their status, schedule, "
+        "integrations, and purpose. Answer questions about them accurately and concisely (2-4 sentences "
+        "unless asked for detail). You are strictly read-only: you can explain, summarize, and diagnose, "
+        "but you never claim to start, stop, or modify any agent -- if asked to do that, say the user needs "
+        "to do it themselves and explain where.",
+        "",
+        f"SUMMARY: {vm['total_agents']} agents, {vm['total_workflows']} n8n workflows, "
+        f"{vm['running']} running, {vm['active_247']} active 24/7, {vm['failed']} need attention.",
+        "",
+        "AGENTS:",
+    ]
+    for a in vm["agents"]:
+        lines.append(
+            f"- {a['name']} [{a['category']}] status={a['state']} schedule={a['schedule_label']} "
+            f"integrations={','.join(a['integrations']) or 'none'} "
+            f"last_run={a.get('last_run_at') or 'never'} :: {a['description']}"
+        )
+    lines.append("")
+    lines.append("N8N WORKFLOWS:")
+    for w in vm["workflows"]:
+        dup = f" (duplicate of {w['duplicate_of']})" if w.get("duplicate_of") else ""
+        lines.append(f"- {w['name']} schedule={w['schedule_label']} state={w['state']}{dup}")
+    lines.append("")
+    lines.append("KNOWN ROADMAP / GAPS:")
+    for r in vm["roadmap"]:
+        lines.append(f"- {r}")
+    return "\n".join(lines)
+
+
+def fetch_master_agent_data():
+    try:
+        with urllib.request.urlopen(MASTER_AGENT_STATUS_URL, timeout=3) as resp:
+            return json.loads(resp.read().decode("utf-8")), None
+    except (URLError, OSError, ValueError) as exc:
+        return None, str(exc)
+
+
+def get_dashboard_data():
+    """Try the local master-agent first (works when this process runs on
+    the same desktop). If that fails, fall back to whatever push_status.py
+    most recently POSTed to /ingest (works when this process is deployed
+    somewhere else entirely). Returns (data, err, source, synced_ago_seconds).
+    err is only set when BOTH sources are unavailable."""
+    data, err = fetch_master_agent_data()
+    if not err:
+        return data, None, "local", 0
+
+    if _pushed_cache["data"] is not None:
+        synced_ago = int(time.time() - _pushed_cache["received_at"])
+        return _pushed_cache["data"], None, "pushed", synced_ago
+
+    return None, err, None, None
+
+
+def build_view_model(data):
+    agents = data["agents"]
+    workflows = data["workflows"]
+    summary = data["summary"]
+
+    total_agents = summary["total_agents"]
+    running = summary["running"]
+    active_247 = summary["active_24_7"]
+    failed = summary["failed"]
+
+    integration_set = sorted({i for a in agents for i in (a.get("integrations") or [])})
+
+    categories = {}
+    for a in agents:
+        categories.setdefault(a["category"], []).append(a)
+
+    integration_map = {}
+    for i in integration_set:
+        integration_map[i] = [a["name"] for a in agents if i in (a.get("integrations") or [])]
+
+    def pct(n, d):
+        return round((n / d) * 100) if d else 0
+
+    return {
+        "agents": agents,
+        "workflows": workflows,
+        "summary": summary,
+        "total_agents": total_agents,
+        "total_workflows": summary["total_workflows"],
+        "running": running,
+        "active_247": active_247,
+        "failed": failed,
+        "integration_set": integration_set,
+        "integration_labels": INTEGRATION_LABELS,
+        "integration_icons": INTEGRATION_ICONS,
+        "integration_map": integration_map,
+        "categories": categories,
+        "category_icons": CATEGORY_ICONS,
+        "panel_icons": PANEL_ICONS,
+        "roadmap": ROADMAP,
+        "pct_running": pct(running, total_agents),
+        "pct_active247": pct(active_247, total_agents),
+        "pct_integrations": pct(len(integration_set), max(len(integration_set), 12)),
+        "pct_attention": 100 if failed == 0 else pct(failed, total_agents),
+        "generated_at": data["generated_at"],
+    }
+
+
+@app.route("/")
+def index():
+    data, err, source, synced_ago = get_dashboard_data()
+    if err:
+        return render_template("jarvis_theme.html", error=err, vm=None)
+    vm = build_view_model(data)
+    vm["data_source"] = source
+    vm["synced_ago"] = synced_ago
+    return render_template("jarvis_theme.html", error=None, vm=vm)
+
+
+@app.route("/api/live")
+def api_live():
+    data, err, source, synced_ago = get_dashboard_data()
+    if err:
+        return jsonify({"error": err}), 502
+    vm = build_view_model(data)
+    vm["data_source"] = source
+    vm["synced_ago"] = synced_ago
+    return jsonify(vm)
+
+
+@app.route("/ingest", methods=["POST"])
+def ingest():
+    """Receives a master-agent /api/status snapshot pushed by this
+    desktop's push_status.py. Requires a matching X-Ingest-Key header --
+    fails closed if FRIDAY_INGEST_KEY isn't configured on this host at all,
+    so a forgotten env var can't silently leave this wide open."""
+    if not INGEST_KEY:
+        return jsonify({"error": "FRIDAY_INGEST_KEY not configured on this host"}), 503
+    if request.headers.get("X-Ingest-Key") != INGEST_KEY:
+        return jsonify({"error": "unauthorized"}), 401
+    body = request.get_json(silent=True)
+    if not body or "agents" not in body or "summary" not in body:
+        return jsonify({"error": "expected a master-agent /api/status payload"}), 400
+    _pushed_cache["data"] = body
+    _pushed_cache["received_at"] = time.time()
+    return jsonify({"ok": True, "received_at": _pushed_cache["received_at"]})
+
+
+def try_openai(api_key, instructions, conversation_input):
+    resp = requests.post(
+        OPENAI_RESPONSES_URL,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={"model": CHAT_MODEL, "instructions": instructions, "input": conversation_input},
+        timeout=30,
+    )
+    payload = resp.json()
+    if not resp.ok:
+        raise RuntimeError((payload.get("error") or {}).get("message") or f"HTTP {resp.status_code}")
+    text_parts = []
+    for item in payload.get("output", []):
+        if item.get("type") == "message":
+            for block in item.get("content", []):
+                if block.get("type") == "output_text" and block.get("text"):
+                    text_parts.append(block["text"])
+    text = "\n".join(text_parts).strip()
+    if not text:
+        raise RuntimeError("empty response text")
+    return text
+
+
+def try_groq(api_key, instructions, user_message, history):
+    messages = [{"role": "system", "content": instructions}]
+    for turn in history[-12:]:
+        role = turn.get("role")
+        content = (turn.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": user_message})
+
+    resp = requests.post(
+        GROQ_CHAT_URL,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={"model": GROQ_MODEL, "messages": messages, "temperature": 0.4, "max_tokens": 700},
+        timeout=30,
+    )
+    payload = resp.json()
+    if not resp.ok:
+        raise RuntimeError((payload.get("error") or {}).get("message") or f"HTTP {resp.status_code}")
+    try:
+        text = payload["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError):
+        text = ""
+    if not text:
+        raise RuntimeError("empty response text")
+    return text
+
+
+def try_anthropic(api_key, instructions, user_message, history):
+    messages = []
+    for turn in history[-12:]:
+        role = turn.get("role")
+        content = (turn.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": user_message})
+
+    resp = requests.post(
+        ANTHROPIC_MESSAGES_URL,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        json={"model": ANTHROPIC_MODEL, "system": instructions, "max_tokens": 700, "messages": messages},
+        timeout=30,
+    )
+    payload = resp.json()
+    if not resp.ok:
+        raise RuntimeError((payload.get("error") or {}).get("message") or f"HTTP {resp.status_code}")
+    parts = [b.get("text", "") for b in payload.get("content", []) if b.get("type") == "text"]
+    text = "\n".join(parts).strip()
+    if not text:
+        raise RuntimeError("empty response text")
+    return text
+
+
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    body = request.get_json(silent=True) or {}
+    user_message = (body.get("message") or "").strip()
+    history = body.get("history") or []
+    if not user_message:
+        return jsonify({"error": "empty message"}), 400
+
+    groq_key = read_own_env("GROQ_API_KEY")
+    openai_keys = read_duplicated_keys("OPENAI_API_KEY")
+    anthropic_keys = read_duplicated_keys("ANTHROPIC_API_KEY")
+    if not groq_key and not openai_keys and not anthropic_keys:
+        return jsonify({
+            "reply": "I don't have any usable AI key yet -- no GROQ_API_KEY in jarvis-dashboard/.env, "
+                     "and none of the agents' duplicated .env keys are readable from master-agent/.env either."
+        })
+
+    data, err, _source, _synced_ago = get_dashboard_data()
+    if err:
+        instructions = (
+            "You are FRIDAY. Master Agent's live status API is currently unreachable "
+            f"({err}). Tell the user that plainly and suggest checking http://127.0.0.1:9000."
+        )
+    else:
+        instructions = build_friday_instructions(build_view_model(data))
+
+    transcript_lines = []
+    for turn in history[-12:]:
+        role = turn.get("role")
+        content = (turn.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            speaker = "User" if role == "user" else "FRIDAY"
+            transcript_lines.append(f"{speaker}: {content}")
+    transcript_lines.append(f"User: {user_message}")
+    conversation_input = "\n".join(transcript_lines)
+
+    errors = []
+    if groq_key:
+        try:
+            reply = try_groq(groq_key, instructions, user_message, history)
+            return jsonify({"reply": reply})
+        except Exception as exc:
+            errors.append(f"groq: {exc}")
+
+    for source, key in openai_keys:
+        try:
+            reply = try_openai(key, instructions, conversation_input)
+            return jsonify({"reply": reply})
+        except Exception as exc:
+            errors.append(f"{source}: {exc}")
+
+    for source, key in anthropic_keys:
+        try:
+            reply = try_anthropic(key, instructions, user_message, history)
+            return jsonify({"reply": reply})
+        except Exception as exc:
+            errors.append(f"{source}: {exc}")
+
+    return jsonify({"reply": "Every AI key I tried failed:\n" + "\n".join(errors)})
+
+
+if __name__ == "__main__":
+    # Render/Railway/most PaaS hosts inject PORT and expect the app to bind
+    # 0.0.0.0 -- when that's present, this is clearly a cloud deployment,
+    # not this desktop, so it's safe (and required) to listen on all
+    # interfaces. Otherwise keep the existing desktop-only default.
+    cloud_port = os.environ.get("PORT")
+    if cloud_port:
+        app.run(host="0.0.0.0", port=int(cloud_port), debug=False)
+    else:
+        port = int(sys.argv[1]) if len(sys.argv) > 1 else 9100
+        app.run(host="127.0.0.1", port=port, debug=False)

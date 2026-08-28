@@ -1,0 +1,1479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRIDAY &mdash; Master Agent (Live)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  :root {
+    --bg-0: #050814;
+    --bg-1: #0a0e27;
+    --bg-2: #0d1530;
+    --panel: rgba(16, 26, 51, 0.55);
+    --panel-solid: #0c1226;
+    --border: rgba(79, 172, 254, 0.28);
+    --accent-a: #4facfe;
+    --accent-b: #00f2fe;
+    --accent-purple: #8b6bff;
+    --accent-pink: #ff6bd6;
+    --accent-orange: #ffa64b;
+    --accent-green: #35e6a0;
+    --accent-red: #ff5f57;
+    --text: #d6e8f7;
+    --text-dim: #7d97b3;
+    --text-bright: #f3fbff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: radial-gradient(ellipse at top, var(--bg-2) 0%, var(--bg-1) 45%, var(--bg-0) 100%);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, .display { font-family: 'Orbitron', sans-serif; }
+
+  .gradient-text {
+    background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  #status-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 32px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(5, 8, 20, 0.6);
+    backdrop-filter: blur(6px);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    flex-wrap: wrap;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  #status-strip .sys-online {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--accent-green);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  #status-strip .sys-online .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 8px var(--accent-green);
+    animation: pulse 1.6s infinite ease-in-out;
+  }
+  #status-strip.attention .sys-online { color: var(--accent-red); }
+  #status-strip.attention .sys-online .dot { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+  .metric-group { display: flex; gap: 22px; flex-wrap: wrap; }
+  .metric { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .metric .ring {
+    position: relative; width: 40px; height: 40px; border-radius: 50%;
+    background: conic-gradient(var(--accent-b) calc(var(--p) * 3.6deg), rgba(255,255,255,0.08) 0deg);
+    transition: background 0.6s ease;
+  }
+  .metric .ring::before { content:""; position:absolute; inset:4px; border-radius:50%; background: var(--bg-0); }
+  .metric .ring span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:0.55rem; font-weight:700; color: var(--accent-b); }
+  .metric label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  .time-block { text-align: right; }
+  .time-block .time { font-family:'Orbitron',sans-serif; font-size: 1rem; color: var(--text-bright); }
+
+  #hero { text-align: center; padding: 60px 20px 40px; position: relative; }
+  #hero .voice-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 16px; border: 1px solid var(--border); border-radius: 30px;
+    font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent-b); margin-bottom: 26px;
+  }
+  #hero .voice-badge .waveform { display:flex; gap:2px; align-items:center; height:12px; }
+  #hero .voice-badge .waveform i { width:2px; background: var(--accent-b); border-radius:1px; animation: wf 1s infinite ease-in-out; }
+  #hero .voice-badge .waveform i:nth-child(2){animation-delay:.1s} #hero .voice-badge .waveform i:nth-child(3){animation-delay:.2s} #hero .voice-badge .waveform i:nth-child(4){animation-delay:.3s} #hero .voice-badge .waveform i:nth-child(5){animation-delay:.4s}
+  @keyframes wf { 0%,100%{height:4px} 50%{height:12px} }
+  #hero h1 { font-size: clamp(2.6rem, 7vw, 5rem); font-weight: 900; letter-spacing: 0.06em; margin: 0; filter: drop-shadow(0 0 30px rgba(79,172,254,0.35)); }
+  #hero .tagline { margin-top: 14px; font-size: 1rem; color: var(--text-bright); letter-spacing: 0.04em; }
+  #hero .subtagline { margin-top: 6px; font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.14em; max-width: 720px; margin-left:auto; margin-right:auto; }
+
+  #sections { max-width: 1400px; margin: 0 auto; padding: 10px 5vw 80px; display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 22px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 26px 26px 28px; position: relative; overflow: hidden; }
+  .panel.span-2 { grid-column: span 2; }
+  .panel.span-3 { grid-column: span 3; }
+  @media (max-width: 1100px) { .panel.span-3 { grid-column: span 2; } }
+  @media (max-width: 900px) { .panel.span-2, .panel.span-3 { grid-column: span 1; } }
+  .panel-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .panel-num {
+    width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', sans-serif; font-weight: 800; font-size: 0.72rem; color: var(--accent-b);
+    border: 1px solid rgba(0,242,254,0.5); background: linear-gradient(160deg, rgba(79,172,254,0.18), rgba(0,242,254,0.03));
+    box-shadow: 0 0 12px rgba(0,242,254,0.3); flex-shrink: 0;
+  }
+  .panel-icon {
+    font-size: 1.1rem;
+    color: var(--accent-b);
+    text-shadow: 0 0 8px rgba(0,242,254,0.5);
+    flex-shrink: 0;
+  }
+  .panel-title { font-size: 0.92rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-bright); }
+  .panel p.lead { font-size: 0.85rem; line-height: 1.6; color: var(--text); }
+
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 14px; }
+  .feature-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px 12px; text-align: left; }
+  .feature-item i { font-size: 1.3rem; color: var(--fi-color, var(--accent-b)); display:block; margin-bottom: 8px; }
+  .feature-item .ft-name { font-size: 0.68rem; font-weight: 600; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.04em; }
+  .feature-item .ft-sub { font-size: 0.62rem; color: var(--text-dim); margin-top: 4px; }
+
+  .flow-col { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+  .flow-row { display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  .flow-box { background: rgba(79,172,254,0.08); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.68rem; text-align: center; color: var(--text-bright); letter-spacing: 0.03em; }
+  .flow-box i { display:block; font-size: 1.1rem; color: var(--accent-b); margin-bottom: 4px; }
+  .flow-arrow { color: var(--accent-b); font-size: 1rem; }
+
+  .cap-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .cap-box { border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 14px; background: rgba(255,255,255,0.02); display:flex; gap:12px; align-items:flex-start; }
+  .cap-box i { font-size: 1.3rem; color: var(--accent-b); flex-shrink:0; margin-top:2px; }
+  .cap-box .cap-title { font-size: 0.7rem; font-weight: 700; color: var(--text-bright); text-transform: uppercase; margin-bottom: 4px; }
+  .cap-box .cap-desc { font-size: 0.64rem; color: var(--text-dim); line-height: 1.5; }
+
+  .cc-mock { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--panel-solid); }
+  .cc-titlebar { display:flex; align-items:center; gap:8px; padding: 9px 14px; background: rgba(79,172,254,0.06); border-bottom:1px solid var(--border); }
+  .cc-dot { width:9px;height:9px;border-radius:50%; }
+  .cc-body { display:grid; grid-template-columns: 46px 1fr 150px; }
+  .cc-nav { display:flex; flex-direction:column; align-items:center; gap:14px; padding: 18px 0; border-right:1px solid var(--border); background: rgba(79,172,254,0.03); }
+  .cc-nav i { font-size: 1rem; color: var(--text-dim); }
+  .cc-nav i.active { color: var(--accent-b); }
+  .cc-main { padding: 20px; }
+  .cc-main .greet { font-family:'Orbitron',sans-serif; font-size: 0.9rem; color: var(--text-bright); }
+  .cc-main .greet span { color: var(--accent-b); }
+  .cc-quick { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .cc-quick a { font-size:0.6rem; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--accent-b); text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; }
+  .cc-side { padding: 18px 14px; border-left: 1px solid var(--border); display:flex; flex-direction:column; gap:12px; align-items:center; justify-content:center; }
+  .cc-gauge { position:relative; width:60px;height:60px;border-radius:50%; background: conic-gradient(var(--accent-b) calc(var(--p)*3.6deg), rgba(255,255,255,0.06) 0); transition: background 0.6s ease; }
+  .cc-gauge::before{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--panel-solid);}
+  .cc-gauge span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;color:var(--accent-b);}
+  .cc-gauge-label { font-size: 0.55rem; text-align:center; color: var(--text-dim); text-transform:uppercase; }
+
+  .tech-cols { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 16px; }
+  .tech-cols h4 { margin: 0 0 8px; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-b); display:flex; align-items:center; gap:6px; }
+  .tech-cols h4 i { font-size: 0.9rem; }
+  .tech-cols ul { margin: 0; padding-left: 16px; font-size: 0.68rem; color: var(--text-dim); line-height: 1.9; }
+
+  .steps-row { display:flex; justify-content:space-between; gap: 10px; flex-wrap:wrap; }
+  .step { flex:1; min-width:120px; text-align:center; }
+  .step .step-icon { width:50px;height:50px;border-radius:50%; display:flex;align-items:center;justify-content:center; background: rgba(79,172,254,0.1); border: 1px solid var(--border); margin: 0 auto 10px; font-size: 1.2rem; color: var(--accent-b); }
+  .step .step-label { font-size: 0.62rem; text-transform:uppercase; letter-spacing:0.04em; color: var(--text-dim); }
+
+  .chip-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 12px; }
+  .chip-card { border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:14px; background: rgba(255,255,255,0.02); text-align:center; }
+  .chip-card i { font-size:1.3rem; color: var(--fi-color, var(--accent-purple)); display:block; margin-bottom:8px; }
+  .chip-card span { font-size:0.65rem; color: var(--text-bright); text-transform:uppercase; letter-spacing:0.03em; display:block; }
+  .chip-card small { font-size: 0.58rem; color: var(--text-dim); }
+
+  .example-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+  .example-list li { display:flex; gap:10px; align-items:flex-start; font-size:0.72rem; color:var(--text); line-height:1.5; }
+  .example-list i { color: var(--accent-green); margin-top:2px; flex-shrink:0; }
+  .example-list b { color: var(--text-bright); }
+
+  .roadmap-list i { color: var(--accent-orange) !important; }
+
+  .folder-tree { font-family: 'Share Tech Mono', monospace; font-size: 0.68rem; color: var(--text-dim); line-height: 1.8; white-space: pre; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 14px; overflow-x: auto; }
+  .folder-tree .dir { color: var(--accent-b); }
+
+  .sec-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px; }
+  .sec-list li { display:flex; gap:10px; align-items:center; font-size:0.72rem; }
+  .sec-list i { color: var(--accent-a); font-size:1rem; flex-shrink:0; }
+
+  .agent-table { width: 100%; border-collapse: collapse; font-size: 0.68rem; }
+  .agent-table th { text-align: left; color: var(--accent-b); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.6rem; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .agent-table td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text); vertical-align: top; }
+  .agent-table tr:last-child td { border-bottom: none; }
+  .status-pill { display:inline-flex; align-items:center; gap:5px; font-size:0.58rem; text-transform:uppercase; letter-spacing:0.05em; padding: 3px 9px; border-radius: 20px; white-space:nowrap; }
+  .status-pill .d { width:6px;height:6px;border-radius:50%; }
+  .status-running { background: rgba(53,230,160,0.1); color: var(--accent-green); border: 1px solid rgba(53,230,160,0.35); }
+  .status-running .d { background: var(--accent-green); }
+  .status-failed { background: rgba(255,95,87,0.1); color: var(--accent-red); border: 1px solid rgba(255,95,87,0.35); }
+  .status-failed .d { background: var(--accent-red); }
+  .status-idle, .status-unconfigured { background: rgba(255,166,75,0.1); color: var(--accent-orange); border: 1px solid rgba(255,166,75,0.35); }
+  .status-idle .d, .status-unconfigured .d { background: var(--accent-orange); }
+  .status-duplicate, .status-cataloged { background: rgba(79,172,254,0.08); color: var(--accent-a); border: 1px solid rgba(79,172,254,0.3); }
+  .status-duplicate .d, .status-cataloged .d { background: var(--accent-a); }
+  .int-tag { display:inline-block; font-size:0.56rem; padding:2px 7px; border-radius:10px; border:1px solid rgba(79,172,254,0.3); color: var(--accent-a); margin: 1px 2px 1px 0; text-transform:uppercase; }
+  .url-link { color: var(--accent-b); text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; border-bottom: 1px dashed rgba(0,242,254,0.4); }
+  .url-link:hover { text-shadow: 0 0 8px rgba(0,242,254,0.5); }
+  .url-link i { font-size: 0.7rem; }
+  .url-none { color: var(--text-dim); font-style: italic; white-space: nowrap; }
+
+  #footer-tagline { text-align:center; padding: 30px 20px 50px; font-family: 'Orbitron', sans-serif; letter-spacing: 0.5em; font-size: 0.9rem; color: var(--text-dim); }
+  #footer-tagline span { color: var(--accent-b); }
+
+  /* ---------- Trend sparkline (running vs. needs-attention, this session) ---------- */
+  .metric.trend-metric { min-width: 96px; }
+  .metric.trend-metric canvas { display: block; border-radius: 4px; }
+  .metric.trend-metric label { white-space: nowrap; }
+
+  /* ---------- Proactive alert toasts ---------- */
+  #toast-stack {
+    position: fixed;
+    top: 68px;
+    right: 18px;
+    z-index: 70;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 320px;
+    max-width: calc(100vw - 36px);
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    background: rgba(8, 14, 28, 0.92);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-b);
+    border-radius: 10px;
+    padding: 12px 14px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+    animation: toastIn 0.3s ease;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .toast.bad { border-left-color: var(--accent-red); box-shadow: 0 8px 28px rgba(255,95,87,0.15); }
+  .toast.warn { border-left-color: var(--accent-orange); box-shadow: 0 8px 28px rgba(255,166,75,0.15); }
+  .toast.good { border-left-color: var(--accent-green); box-shadow: 0 8px 28px rgba(53,230,160,0.15); }
+  .toast.closing { animation: toastOut 0.25s ease forwards; }
+  .toast i.t-icon { font-size: 1.05rem; margin-top: 1px; flex-shrink: 0; color: var(--accent-b); }
+  .toast.bad i.t-icon { color: var(--accent-red); }
+  .toast.warn i.t-icon { color: var(--accent-orange); }
+  .toast.good i.t-icon { color: var(--accent-green); }
+  .toast .t-body { flex: 1; min-width: 0; }
+  .toast .t-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-bright); margin-bottom: 3px; }
+  .toast .t-text { font-size: 0.68rem; color: var(--text-dim); line-height: 1.45; }
+  .toast .t-close { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 0.85rem; flex-shrink: 0; }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(24px); } }
+  @media (max-width: 480px) {
+    #toast-stack { left: 12px; right: 12px; width: auto; top: 60px; }
+  }
+
+  .error-box { max-width: 640px; margin: 100px auto; text-align: center; padding: 40px; border: 1px solid var(--accent-red); border-radius: 12px; background: rgba(255,95,87,0.05); }
+  .error-box i { font-size: 2rem; color: var(--accent-red); }
+
+  /* ---------- Animated background: drifting galaxy field ---------- */
+  #bg-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* ---------- Ambient "AI is working" activity console ---------- */
+  #activity-console {
+    position: fixed;
+    bottom: 18px;
+    left: 18px;
+    z-index: 40;
+    width: 340px;
+    max-width: 46vw;
+    background: rgba(6, 11, 24, 0.55);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--accent-b);
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+    box-shadow: 0 0 20px rgba(0,242,254,0.08);
+  }
+  #activity-console .ac-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  #activity-console .ac-head .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+    animation: pulse 1.6s infinite ease-in-out;
+  }
+  #activity-console .ac-line {
+    opacity: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: acFade 2.6s ease forwards;
+    text-shadow: 0 0 6px rgba(0,242,254,0.4);
+  }
+  @keyframes acFade {
+    0% { opacity: 0; transform: translateY(4px); }
+    12% { opacity: 1; transform: translateY(0); }
+    88% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  @media (max-width: 720px) {
+    #activity-console { display: none; }
+  }
+
+  /* ---------- Floating FRIDAY co-pilot ---------- */
+  #friday-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 60;
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,242,254,0.5);
+    background: radial-gradient(circle at 35% 30%, rgba(79,172,254,0.5), rgba(6,11,24,0.9) 70%);
+    box-shadow: 0 0 24px rgba(0,242,254,0.35), 0 8px 24px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    animation: fabPulse 2.4s infinite ease-in-out;
+  }
+  #friday-fab i { font-size: 1.6rem; color: var(--accent-b); text-shadow: 0 0 10px rgba(0,242,254,0.7); }
+  #friday-fab .fab-dot {
+    position: absolute; top: 4px; right: 4px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+    border: 2px solid var(--bg-0);
+  }
+  @keyframes fabPulse {
+    0%, 100% { box-shadow: 0 0 24px rgba(0,242,254,0.35), 0 8px 24px rgba(0,0,0,0.4); }
+    50% { box-shadow: 0 0 36px rgba(0,242,254,0.55), 0 8px 24px rgba(0,0,0,0.4); }
+  }
+
+  #friday-panel {
+    position: fixed;
+    bottom: 100px;
+    right: 24px;
+    z-index: 60;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    height: 520px;
+    max-height: 70vh;
+    background: rgba(8, 14, 28, 0.85);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 40px rgba(0,242,254,0.15), 0 20px 60px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  #friday-panel.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+  #friday-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(79,172,254,0.06);
+  }
+  #friday-head .fh-title { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--text-bright); flex: 1; }
+  #friday-head .fh-title span { color: var(--accent-b); }
+  #friday-head .fh-sub { font-size: 0.58rem; color: var(--text-dim); }
+  #friday-mute, #friday-close {
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--accent-b); width: 28px; height: 28px; cursor: pointer; font-size: 0.9rem;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  #friday-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #friday-messages::-webkit-scrollbar { width: 6px; }
+  #friday-messages::-webkit-scrollbar-thumb { background: rgba(0,242,254,0.25); border-radius: 3px; }
+  .fmsg {
+    max-width: 85%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+  .fmsg.user { align-self: flex-end; background: rgba(79,172,254,0.18); color: var(--text-bright); border: 1px solid rgba(79,172,254,0.3); }
+  .fmsg.assistant { align-self: flex-start; background: rgba(255,255,255,0.04); color: var(--text); border: 1px solid rgba(255,255,255,0.07); }
+  .fmsg.assistant b { color: var(--accent-b); }
+  .fmsg.thinking { align-self: flex-start; color: var(--text-dim); font-style: italic; }
+
+  #friday-inputrow {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    border-top: 1px solid var(--border);
+  }
+  #friday-input {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text-bright);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    outline: none;
+    resize: none;
+  }
+  #friday-mic, #friday-send {
+    width: 36px; height: 36px; flex-shrink: 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--accent-b);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  #friday-mic.listening { background: rgba(255,95,87,0.15); color: var(--accent-red); border-color: rgba(255,95,87,0.5); animation: pulse 1s infinite ease-in-out; }
+  #friday-send:hover, #friday-mic:hover { box-shadow: 0 0 10px rgba(0,242,254,0.35); }
+
+  @media (max-width: 480px) {
+    #friday-panel { right: 12px; left: 12px; width: auto; bottom: 96px; }
+    #friday-fab { right: 16px; bottom: 16px; }
+  }
+
+  /* ============================================================
+     PREVIEW ONLY -- HUD-styled scroll-reveal candidates + switcher.
+     Once one is picked, delete the other two variants' rules, the
+     unused keyframes, the #anim-switcher block, and (for "boot")
+     the scrambleNum JS if a different variant wins.
+     ============================================================ */
+  .panel { opacity: 0; position: relative; }
+
+  /* ---- Scan: a bright scanline sweeps top-to-bottom as the panel lands ---- */
+  body[data-anim="scan"] .panel {
+    transform: translateY(14px);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+  }
+  body[data-anim="scan"] .panel.in-view { opacity: 1; transform: translateY(0); }
+  body[data-anim="scan"] .panel.in-view::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 0; height: 2px;
+    background: var(--accent-b);
+    box-shadow: 0 0 10px var(--accent-b), 0 0 22px var(--accent-b);
+    animation: scanSweep 0.7s ease-out;
+    pointer-events: none;
+  }
+  @keyframes scanSweep {
+    0% { top: 0; opacity: 1; }
+    85% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  /* ---- Boot: a loading bar fills the top edge; panel-num digits scramble (see JS) ---- */
+  body[data-anim="boot"] .panel {
+    transform: translateY(10px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  body[data-anim="boot"] .panel.in-view { opacity: 1; transform: translateY(0); }
+  body[data-anim="boot"] .panel::after {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; height: 2px; width: 0%;
+    background: linear-gradient(90deg, var(--accent-b), var(--accent-purple));
+    transition: width 0.7s ease;
+    pointer-events: none;
+  }
+  body[data-anim="boot"] .panel.in-view::after { width: 100%; }
+
+  /* ---- Lock: four corner brackets snap in (camera-focus / target-lock feel) ---- */
+  body[data-anim="lock"] .panel {
+    transition: opacity 0.4s ease;
+  }
+  body[data-anim="lock"] .panel.in-view { opacity: 1; }
+  body[data-anim="lock"] .panel::before {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    opacity: 0;
+    transform: scale(1.1);
+    transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-image:
+      linear-gradient(var(--accent-b), var(--accent-b)), linear-gradient(var(--accent-b), var(--accent-b)),
+      linear-gradient(var(--accent-b), var(--accent-b)), linear-gradient(var(--accent-b), var(--accent-b)),
+      linear-gradient(var(--accent-b), var(--accent-b)), linear-gradient(var(--accent-b), var(--accent-b)),
+      linear-gradient(var(--accent-b), var(--accent-b)), linear-gradient(var(--accent-b), var(--accent-b));
+    background-size: 2px 18px, 18px 2px, 2px 18px, 18px 2px, 2px 18px, 18px 2px, 2px 18px, 18px 2px;
+    background-position:
+      top left, top left,
+      top right, top right,
+      bottom left, bottom left,
+      bottom right, bottom right;
+  }
+  body[data-anim="lock"] .panel.in-view::before { opacity: 1; transform: scale(1); }
+
+  /* ---- Assemble: glowing particles converge from around the panel to form it ---- */
+  body[data-anim="assemble"] .panel {
+    transform: scale(0.97);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  body[data-anim="assemble"] .panel.in-view { opacity: 1; transform: scale(1); }
+
+  #assemble-fx {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .panel, .panel::before, .panel::after {
+      opacity: 1 !important; transform: none !important; transition: none !important;
+      animation: none !important; content: none !important;
+    }
+    #assemble-fx { display: none; }
+  }
+
+  #anim-switcher {
+    position: fixed;
+    top: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 65;
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    background: rgba(8, 14, 28, 0.85);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  #anim-switcher button {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  #anim-switcher button.active {
+    color: var(--accent-b);
+    border-color: var(--border);
+    background: rgba(79,172,254,0.12);
+  }
+  #anim-switcher button:hover { color: var(--accent-b); }
+  @media (max-width: 600px) { #anim-switcher { top: auto; bottom: 96px; } }
+</style>
+</head>
+<body data-anim="scan">
+
+<canvas id="bg-canvas"></canvas>
+<div id="toast-stack"></div>
+<div id="activity-console">
+  <div class="ac-head"><span class="dot"></span>FRIDAY &mdash; background process</div>
+  <div class="ac-line" id="ac-line"></div>
+</div>
+
+<canvas id="assemble-fx"></canvas>
+<div id="anim-switcher">
+  <button data-anim="scan" class="active">Scan</button>
+  <button data-anim="boot">Boot</button>
+  <button data-anim="lock">Lock-on</button>
+  <button data-anim="assemble">Assemble</button>
+</div>
+
+<div id="friday-fab" title="Talk to FRIDAY">
+  <i class="ti ti-brain"></i>
+  <span class="fab-dot"></span>
+</div>
+
+<div id="friday-panel">
+  <div id="friday-head">
+    <div>
+      <div class="fh-title"><span>FRIDAY</span> co-pilot</div>
+      <div class="fh-sub" id="friday-voice-status">chat + voice &middot; aware of all agents</div>
+    </div>
+    <button id="friday-mute" title="Mute voice replies"><i class="ti ti-volume"></i></button>
+    <button id="friday-close" title="Close"><i class="ti ti-x"></i></button>
+  </div>
+  <div id="friday-messages"></div>
+  <div id="friday-inputrow">
+    <textarea id="friday-input" rows="1" placeholder="Ask FRIDAY about your agents..."></textarea>
+    <button id="friday-mic" title="Speak to FRIDAY"><i class="ti ti-microphone"></i></button>
+    <button id="friday-send" title="Send"><i class="ti ti-send"></i></button>
+  </div>
+</div>
+
+{% if error %}
+  <div class="error-box">
+    <i class="ti ti-plug-connected-x"></i>
+    <h2>Master Agent Unreachable</h2>
+    <p style="color:var(--text-dim); font-size:0.8rem;">Could not reach <code>http://127.0.0.1:9000/api/status</code>.<br>
+    Make sure the Master Agent dashboard is running, then reload this page.</p>
+    <p style="color:var(--text-dim); font-size:0.65rem;">{{ error }}</p>
+  </div>
+{% else %}
+
+<div id="status-strip" class="{{ 'attention' if vm.failed > 0 else '' }}">
+  <div class="sys-online"><span class="dot"></span>{{ 'NEEDS ATTENTION' if vm.failed > 0 else 'ALL SYSTEMS NOMINAL' }}</div>
+  <div class="metric-group">
+    <div class="metric"><div class="ring" id="ring-running" style="--p:{{ vm.pct_running }}"><span id="val-running">{{ vm.running }}</span></div><label>Running</label></div>
+    <div class="metric"><div class="ring" id="ring-247" style="--p:{{ vm.pct_active247 }}"><span id="val-247">{{ vm.active_247 }}</span></div><label>Active 24/7</label></div>
+    <div class="metric"><div class="ring" id="ring-integrations" style="--p:{{ vm.pct_integrations }}"><span id="val-integrations">{{ vm.integration_set|length }}</span></div><label>Integrations</label></div>
+    <div class="metric"><div class="ring" id="ring-attention" style="--p:{{ vm.pct_attention }}"><span id="val-attention">{{ vm.failed }}</span></div><label>Need Attention</label></div>
+    <div class="metric trend-metric"><canvas id="trend-sparkline" width="96" height="34"></canvas><label>Session Trend</label></div>
+  </div>
+  <div class="time-block">
+    <div class="time" id="clock">--:--:--</div>
+    <div id="dateline">Synced {{ vm.generated_at }}</div>
+  </div>
+</div>
+
+<section id="hero">
+  <div class="voice-badge">
+    <div class="waveform"><i></i><i></i><i></i><i></i><i></i></div>
+    {% if vm.data_source == 'pushed' %}
+      SYNCED FROM DESKTOP &middot; LAST PUSH {{ vm.synced_ago }}s AGO
+    {% else %}
+      LIVE MIRROR &middot; PULLING FROM MASTER AGENT :9000
+    {% endif %}
+  </div>
+  <h1><span class="gradient-text">FRIDAY</span></h1>
+  <div class="tagline">Master Agent, seen through the FRIDAY theme</div>
+  <div class="subtagline">{{ vm.total_agents }} agents + {{ vm.total_workflows }} n8n workflows &middot; {{ vm.running }} running &middot; {{ vm.active_247 }} active 24/7 &middot; {{ vm.integration_set|length }} integrations synced &middot; read-only mirror, no agent is modified by this page</div>
+</section>
+
+<div id="sections">
+
+  <div class="panel span-2">
+    <div class="panel-head"><span class="panel-num">01</span><i class="ti {{ vm.panel_icons['01'] }} panel-icon"></i><span class="panel-title">Project Overview</span></div>
+    <p class="lead">Master Agent is the unified command deck for every automation running in this workspace: {{ vm.total_agents }}
+    standalone Python agents plus {{ vm.total_workflows }} scheduled n8n workflows, covering lead generation, brand &amp; keyword
+    monitoring, WhatsApp campaigns, and internal ops for Recykal's recycling-sector operations. This page is a live, read-only
+    mirror of that same data &mdash; rendered in the FRIDAY theme, refreshing every few seconds.</p>
+  </div>
+
+  <div class="panel span-2">
+    <div class="panel-head"><span class="panel-num">02</span><i class="ti {{ vm.panel_icons['02'] }} panel-icon"></i><span class="panel-title">Core Features (by Category)</span></div>
+    <div class="feature-grid">
+      {% for cat, cat_agents in vm.categories.items() %}
+      <div class="feature-item">
+        <i class="ti {{ vm.category_icons.get(cat, 'ti-cpu') }}"></i>
+        <div class="ft-name">{{ cat }}</div>
+        <div class="ft-sub">{{ cat_agents|length }} agent{{ 's' if cat_agents|length != 1 else '' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel span-2">
+    <div class="panel-head"><span class="panel-num">03</span><i class="ti {{ vm.panel_icons['03'] }} panel-icon"></i><span class="panel-title">System Architecture</span></div>
+    <div class="flow-col">
+      <div class="flow-row"><div class="flow-box"><i class="ti ti-layout-dashboard"></i>Master Agent Dashboard<br><small style="color:var(--text-dim)">Flask + live status polling (:9000)</small></div></div>
+      <div class="flow-row"><span class="flow-arrow">&#8595;</span></div>
+      <div class="flow-row"><div class="flow-box"><i class="ti ti-book-2"></i>registry.py Catalog<br><small style="color:var(--text-dim)">{{ vm.total_agents }} agents / {{ vm.total_workflows }} workflows</small></div></div>
+      <div class="flow-row"><span class="flow-arrow">&#8595;</span></div>
+      <div class="flow-row">
+        <div class="flow-box"><i class="ti ti-activity"></i>status.py<br><small style="color:var(--text-dim)">Port checks / log &amp; history reads</small></div>
+        <div class="flow-box"><i class="ti ti-robot"></i>Individual Agents<br><small style="color:var(--text-dim)">Each its own venv / port</small></div>
+        <div class="flow-box"><i class="ti ti-git-branch"></i>n8n Workflows<br><small style="color:var(--text-dim)">Cron / webhook triggered</small></div>
+      </div>
+      <div class="flow-row"><span class="flow-arrow">&#8595;</span></div>
+      <div class="flow-row"><div class="flow-box"><i class="ti ti-send"></i>Delivery Channels<br><small style="color:var(--text-dim)">{{ vm.integration_set|join(', ') }}</small></div></div>
+    </div>
+  </div>
+
+  <div class="panel span-2">
+    <div class="panel-head"><span class="panel-num">04</span><i class="ti {{ vm.panel_icons['04'] }} panel-icon"></i><span class="panel-title">Integrations In Use</span></div>
+    <div class="cap-grid">
+      {% for i in vm.integration_set %}
+      <div class="cap-box">
+        <i class="ti {{ vm.integration_icons.get(i, 'ti-plug') }}"></i>
+        <div>
+          <div class="cap-title">{{ vm.integration_labels.get(i, i) }}</div>
+          <div class="cap-desc">Used by: {{ vm.integration_map[i]|join(', ') }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel span-2">
+    <div class="panel-head"><span class="panel-num">05</span><i class="ti {{ vm.panel_icons['05'] }} panel-icon"></i><span class="panel-title">Friday Command Center (Live)</span></div>
+    <div class="cc-mock">
+      <div class="cc-titlebar">
+        <span class="cc-dot" style="background:#ff5f57"></span>
+        <span class="cc-dot" style="background:#febc2e"></span>
+        <span class="cc-dot" style="background:#28c840"></span>
+        <span style="margin-left:8px;font-size:0.65rem;color:var(--text-dim);letter-spacing:0.1em;">MASTER AGENT &mdash; Live Mirror</span>
+      </div>
+      <div class="cc-body">
+        <div class="cc-nav">
+          <i class="ti ti-layout-dashboard active"></i>
+          <i class="ti ti-robot"></i>
+          <i class="ti ti-git-branch"></i>
+          <i class="ti ti-plug"></i>
+          <i class="ti ti-settings"></i>
+        </div>
+        <div class="cc-main">
+          <div class="greet">Hello, <span>Boss</span>. {{ 'All systems nominal.' if vm.failed == 0 else (vm.failed|string + ' agent(s) need attention.') }}</div>
+          <div class="cc-quick">
+            {% if vm.data_source != 'pushed' %}
+            <a href="http://127.0.0.1:9000" target="_blank" rel="noopener">Open Master Agent</a>
+            {% endif %}
+            <a href="#agent-table">View Live Agents</a>
+            <a href="/api/live" target="_blank" rel="noopener">Raw JSON</a>
+          </div>
+        </div>
+        <div class="cc-side">
+          <div class="cc-gauge" id="cc-gauge-running" style="--p:{{ vm.pct_running }}"><span id="cc-val-running">{{ vm.running }}</span></div>
+          <div class="cc-gauge-label">Running</div>
+          <div class="cc-gauge" id="cc-gauge-247" style="--p:{{ vm.pct_active247 }}"><span id="cc-val-247">{{ vm.active_247 }}</span></div>
+          <div class="cc-gauge-label">Active 24/7</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel span-2">
+    <div class="panel-head"><span class="panel-num">06</span><i class="ti {{ vm.panel_icons['06'] }} panel-icon"></i><span class="panel-title">Technologies Actually In Use</span></div>
+    <div class="tech-cols">
+      <div><h4><i class="ti ti-server"></i>Backend</h4><ul><li>Python / Flask</li><li>FastAPI (News Aggregator)</li></ul></div>
+      <div><h4><i class="ti ti-browser"></i>Frontend</h4><ul><li>Plain HTML/CSS/JS</li><li>Streamlit (News Aggregator)</li></ul></div>
+      <div><h4><i class="ti ti-database"></i>Database</h4><ul><li>SQLite (CRM Bank, Work Tracker, News)</li><li>JSONL run histories</li></ul></div>
+      <div><h4><i class="ti ti-brain"></i>AI Models</h4><ul><li>OpenAI</li><li>Anthropic</li></ul></div>
+      <div><h4><i class="ti ti-send"></i>Delivery</h4><ul><li>WATI (WhatsApp)</li><li>Slack webhooks</li></ul></div>
+      <div><h4><i class="ti ti-git-branch"></i>Orchestration</h4><ul><li>n8n ({{ vm.total_workflows }} workflows)</li><li>Windows Task Scheduler</li></ul></div>
+    </div>
+  </div>
+
+  <div class="panel span-2">
+    <div class="panel-head"><span class="panel-num">07</span><i class="ti {{ vm.panel_icons['07'] }} panel-icon"></i><span class="panel-title">How It Works</span></div>
+    <div class="steps-row">
+      <div class="step"><div class="step-icon"><i class="ti ti-rss"></i></div><div class="step-label">Agent Detects Event<br>(RSS / Brand24 / Webhook)</div></div>
+      <div class="step"><div class="step-icon"><i class="ti ti-cpu"></i></div><div class="step-label">AI Scores &amp; Summarizes<br>(OpenAI / Anthropic)</div></div>
+      <div class="step"><div class="step-icon"><i class="ti ti-user-check"></i></div><div class="step-label">Human Approval Gate<br>(agent's own dashboard)</div></div>
+      <div class="step"><div class="step-icon"><i class="ti ti-send"></i></div><div class="step-label">Automated Delivery<br>(WhatsApp / Slack / Sheets)</div></div>
+      <div class="step"><div class="step-icon"><i class="ti ti-activity"></i></div><div class="step-label">Master Agent Logs Status</div></div>
+    </div>
+  </div>
+
+  <div class="panel span-2">
+    <div class="panel-head"><span class="panel-num">08</span><i class="ti {{ vm.panel_icons['08'] }} panel-icon"></i><span class="panel-title">Real-World Uses (by Category)</span></div>
+    <div class="chip-grid">
+      {% for cat, cat_agents in vm.categories.items() %}
+      <div class="chip-card">
+        <i class="ti {{ vm.category_icons.get(cat, 'ti-cpu') }}"></i>
+        <span>{{ cat }}</span>
+        <small>{{ cat_agents|map(attribute='name')|join(', ') }}</small>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="panel-num">09</span><i class="ti {{ vm.panel_icons['09'] }} panel-icon"></i><span class="panel-title">Automation Examples (Real Agents)</span></div>
+    <ul class="example-list">
+      {% for a in vm.agents %}
+      <li><i class="ti ti-circle-check"></i><b>{{ a.name }}:</b> {{ a.value_prop or a.description }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="panel-num">10</span><i class="ti {{ vm.panel_icons['10'] }} panel-icon"></i><span class="panel-title">Registered Agent Modules</span></div>
+    <div class="folder-tree">EPR/
+{% for a in vm.agents -%}
+├── <span class="dir">{{ a.id }}/</span>
+{% endfor -%}
+└── <span class="dir">master-agent/</span>  (this control panel)</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="panel-num">11</span><i class="ti {{ vm.panel_icons['11'] }} panel-icon"></i><span class="panel-title">Security &amp; Privacy</span></div>
+    <ul class="sec-list">
+      <li><i class="ti ti-lock"></i>Read-only dashboard &mdash; never starts, stops, or edits any agent</li>
+      <li><i class="ti ti-fingerprint"></i>Each agent keeps its own .env; keys are duplicated, never hand-edited</li>
+      <li><i class="ti ti-database"></i>Local SQLite/JSONL only &mdash; no data leaves this machine</li>
+      <li><i class="ti ti-shield-lock"></i>This FRIDAY mirror only reads master-agent's public /api/status</li>
+    </ul>
+  </div>
+
+  <div class="panel span-3">
+    <div class="panel-head"><span class="panel-num">12</span><i class="ti {{ vm.panel_icons['12'] }} panel-icon"></i><span class="panel-title">Roadmap / Known Gaps</span></div>
+    <ul class="example-list roadmap-list">
+      {% for item in vm.roadmap %}
+      <li><i class="ti ti-alert-triangle"></i>{{ item }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="panel span-3" id="agent-table">
+    <div class="panel-head"><span class="panel-num">13</span><i class="ti {{ vm.panel_icons['13'] }} panel-icon"></i><span class="panel-title">Live Agent Status (Full Detail)</span></div>
+    <div style="overflow-x:auto;">
+    <table class="agent-table">
+      <thead><tr><th>Agent</th><th>Category</th><th>Status</th><th>Schedule</th><th>Integrations</th><th>Last Run</th><th>Local Server URL</th></tr></thead>
+      <tbody>
+        {% for a in vm.agents %}
+        <tr>
+          <td><b style="color:var(--text-bright)"><i class="ti {{ a.icon or 'ti-cpu' }}" style="color:var(--accent-b);margin-right:6px;"></i>{{ a.name }}</b></td>
+          <td>{{ a.category }}</td>
+          <td><span class="status-pill status-{{ a.state }}"><span class="d"></span>{{ a.state }}</span></td>
+          <td>{{ a.schedule_label }}</td>
+          <td>{% for i in a.integrations %}<span class="int-tag">{{ i }}</span>{% endfor %}</td>
+          <td>{{ a.last_run_at or 'No run recorded yet' }}</td>
+          <td>{% if a.url %}<a href="{{ a.url }}" target="_blank" rel="noopener" class="url-link">{{ a.url }} <i class="ti ti-external-link"></i></a>{% else %}<span class="url-none">CLI only &mdash; no server</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        {% for w in vm.workflows %}
+        <tr>
+          <td><b style="color:var(--text-bright)"><i class="ti {{ w.icon or 'ti-git-branch' }}" style="color:var(--accent-a);margin-right:6px;"></i>{{ w.name }}</b></td>
+          <td>n8n workflow</td>
+          <td><span class="status-pill status-{{ w.state }}"><span class="d"></span>{{ w.state }}</span></td>
+          <td>{{ w.schedule_label }}</td>
+          <td>{% for i in w.integrations %}<span class="int-tag">{{ i }}</span>{% endfor %}</td>
+          <td>{{ '&mdash; duplicate of ' + w.duplicate_of if w.duplicate_of else w.file }}</td>
+          <td><span class="url-none">n8n workflow &mdash; no local server</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="footer-tagline">READ&#8209;ONLY <span>&bull;</span> LIVE <span>&bull;</span> NON&#8209;DISRUPTIVE</div>
+
+<script>
+  function tick() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('en-GB', { hour12: false });
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  function setRing(prefix, value, pct) {
+    const ring = document.getElementById('ring-' + prefix) || document.getElementById('cc-gauge-' + prefix);
+    const val = document.getElementById('val-' + prefix) || document.getElementById('cc-val-' + prefix);
+    if (ring) ring.style.setProperty('--p', pct);
+    if (val) val.textContent = value;
+  }
+
+  /* ---------------------------------------------------------------------
+   * Session trend sparkline: a rolling, client-side-only history of the
+   * running vs. needs-attention counts. Not persisted -- it exists purely
+   * to show which way things are moving while this tab stays open.
+   * ------------------------------------------------------------------- */
+  const trendHistory = { running: [{{ vm.running }}], failed: [{{ vm.failed }}] };
+  const TREND_MAX_POINTS = 40;
+
+  function drawSparkline() {
+    const canvas = document.getElementById('trend-sparkline');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const allVals = trendHistory.running.concat(trendHistory.failed);
+    const maxVal = Math.max(1, ...allVals);
+
+    function plot(series, color) {
+      if (series.length < 2) return;
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.4;
+      series.forEach((v, i) => {
+        const x = (i / (TREND_MAX_POINTS - 1)) * w;
+        const y = h - (v / maxVal) * (h - 4) - 2;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+    plot(trendHistory.running, 'rgba(53,230,160,0.85)');
+    plot(trendHistory.failed, 'rgba(255,95,87,0.85)');
+  }
+  drawSparkline();
+
+  async function pollLive() {
+    try {
+      const res = await fetch('/api/live');
+      const vm = await res.json();
+      if (!res.ok || vm.error || !vm.integration_set) {
+        console.warn('live poll: master agent unreachable, skipping this cycle');
+        return;
+      }
+      setRing('running', vm.running, vm.pct_running);
+      setRing('247', vm.active_247, vm.pct_active247);
+      setRing('integrations', vm.integration_set.length, vm.pct_integrations);
+      setRing('attention', vm.failed, vm.pct_attention);
+      const strip = document.getElementById('status-strip');
+      if (strip) strip.classList.toggle('attention', vm.failed > 0);
+
+      trendHistory.running.push(vm.running);
+      trendHistory.failed.push(vm.failed);
+      if (trendHistory.running.length > TREND_MAX_POINTS) trendHistory.running.shift();
+      if (trendHistory.failed.length > TREND_MAX_POINTS) trendHistory.failed.shift();
+      drawSparkline();
+
+      if (window.fridayCheckTransitions && Array.isArray(vm.agents)) {
+        window.fridayCheckTransitions(vm.agents);
+      }
+    } catch (err) {
+      console.error('live poll failed', err);
+    }
+  }
+  setInterval(pollLive, 8000);
+
+  /* ---------------------------------------------------------------------
+   * Ambient background: drifting galaxy / neural-net particle field.
+   * Purely decorative -- does not read or touch any agent data.
+   * ------------------------------------------------------------------- */
+  (function initGalaxy() {
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    let w, h, cx, cy;
+    let particles = [];
+    const COUNT = 140;
+    const LINK_DIST = 130;
+
+    function resize() {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+      cx = w / 2;
+      cy = h / 2;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function makeParticle() {
+      const radius = Math.random() * Math.max(w, h) * 0.65;
+      const angle = Math.random() * Math.PI * 2;
+      return {
+        radius,
+        angle,
+        spin: (0.00035 + Math.random() * 0.0006) * (radius < 120 ? 2.2 : 1),
+        size: Math.random() * 1.6 + 0.4,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.02 + Math.random() * 0.03,
+        drift: (Math.random() - 0.5) * 0.15,
+      };
+    }
+    for (let i = 0; i < COUNT; i++) particles.push(makeParticle());
+
+    function draw() {
+      // translucent fill (not full clear) leaves a soft trailing glow
+      ctx.fillStyle = 'rgba(5, 8, 20, 0.22)';
+      ctx.fillRect(0, 0, w, h);
+
+      const pts = [];
+      for (const p of particles) {
+        p.angle += p.spin;
+        p.radius += p.drift;
+        if (p.radius < 0 || p.radius > Math.max(w, h) * 0.7) {
+          Object.assign(p, makeParticle());
+          continue;
+        }
+        p.twinklePhase += p.twinkleSpeed;
+        const x = cx + Math.cos(p.angle) * p.radius;
+        const y = cy + Math.sin(p.angle) * p.radius * 0.55; // flatten into a galactic-disc ellipse
+        const twinkle = 0.4 + Math.sin(p.twinklePhase) * 0.35;
+        pts.push({ x, y, size: p.size, twinkle });
+      }
+
+      // faint constellation links between nearby particles (the "AI network" feel)
+      ctx.lineWidth = 0.6;
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < LINK_DIST) {
+            const op = (1 - dist / LINK_DIST) * 0.12;
+            ctx.strokeStyle = `rgba(79, 172, 254, ${op})`;
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x, pts[i].y);
+            ctx.lineTo(pts[j].x, pts[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // stars/particles on top
+      for (const pt of pts) {
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(0, 242, 254, ${pt.twinkle})`;
+        ctx.shadowColor = 'rgba(0, 242, 254, 0.8)';
+        ctx.shadowBlur = pt.size * 2.5;
+        ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+
+      // soft galactic core glow
+      const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.28);
+      core.addColorStop(0, 'rgba(79, 172, 254, 0.10)');
+      core.addColorStop(1, 'rgba(79, 172, 254, 0)');
+      ctx.fillStyle = core;
+      ctx.fillRect(0, 0, w, h);
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+
+  /* ---------------------------------------------------------------------
+   * "AI is working" activity console -- cycles real agent/integration
+   * names through synthetic backend-check log lines. Read-only flavor
+   * text: it never issues any actual request against an agent.
+   * ------------------------------------------------------------------- */
+  (function initActivityConsole() {
+    const agentNames = {{ vm.agents | map(attribute='name') | list | tojson }};
+    const integrations = {{ vm.integration_set | tojson }};
+    const verbs = [
+      'pinging', 'verifying port for', 'reading log tail for', 'checking schedule for',
+      'reconciling status for', 'scanning history file for',
+    ];
+    const genericLines = [
+      'reloading registry.py...',
+      'polling /api/status...',
+      'no anomalies detected',
+      'duplicate workflow check: 2 flagged',
+      'integration key scan complete',
+      'render cycle nominal',
+    ];
+
+    function nextLine() {
+      const useAgent = agentNames.length && Math.random() < 0.65;
+      if (useAgent) {
+        const verb = verbs[Math.floor(Math.random() * verbs.length)];
+        const agent = agentNames[Math.floor(Math.random() * agentNames.length)];
+        return `> ${verb} ${agent}... OK`;
+      }
+      if (integrations.length && Math.random() < 0.5) {
+        const i = integrations[Math.floor(Math.random() * integrations.length)];
+        return `> syncing ${i} integration keys... OK`;
+      }
+      return `> ${genericLines[Math.floor(Math.random() * genericLines.length)]}`;
+    }
+
+    const lineEl = document.getElementById('ac-line');
+    function showNext() {
+      if (!lineEl) return;
+      lineEl.style.animation = 'none';
+      void lineEl.offsetWidth; // restart the CSS animation
+      lineEl.textContent = nextLine();
+      lineEl.style.animation = '';
+    }
+    showNext();
+    setInterval(showNext, 2800);
+  })();
+
+  /* ---------------------------------------------------------------------
+   * FRIDAY co-pilot: floating chat + voice (Web Speech API, no external
+   * voice service needed). Chat brain calls this app's own /api/chat,
+   * which builds fresh context from Master Agent's live data server-side.
+   * ------------------------------------------------------------------- */
+  (function initFriday() {
+    const fab = document.getElementById('friday-fab');
+    const panel = document.getElementById('friday-panel');
+    const closeBtn = document.getElementById('friday-close');
+    const muteBtn = document.getElementById('friday-mute');
+    const messagesEl = document.getElementById('friday-messages');
+    const input = document.getElementById('friday-input');
+    const sendBtn = document.getElementById('friday-send');
+    const micBtn = document.getElementById('friday-mic');
+    const voiceStatus = document.getElementById('friday-voice-status');
+
+    let history = [];
+    let muted = false;
+    let opened = false;
+    let greetedText = false;
+    let greetedVoice = false;
+    const GREETING = "Hey Boss, what are we going to build today?";
+
+    function addMessage(role, text) {
+      const div = document.createElement('div');
+      div.className = 'fmsg ' + role;
+      div.textContent = text;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
+    }
+
+    function speakGreetingOnce() {
+      if (greetedVoice || muted || !('speechSynthesis' in window)) return;
+      greetedVoice = true;
+      speak(GREETING);
+    }
+
+    function greet() {
+      if (!greetedText) {
+        greetedText = true;
+        addMessage('assistant', GREETING);
+        history.push({ role: 'assistant', content: GREETING });
+      }
+      speakGreetingOnce();
+    }
+
+    function togglePanel(forceOpen) {
+      opened = forceOpen !== undefined ? forceOpen : !opened;
+      panel.classList.toggle('open', opened);
+      if (opened) {
+        greet();
+        input.focus();
+      }
+    }
+    fab.addEventListener('click', () => togglePanel());
+    closeBtn.addEventListener('click', () => togglePanel(false));
+
+    // Greet as soon as the page (the agent) is opened -- proactive, not
+    // waiting for the user to click the FAB first. Panel auto-opens once.
+    setTimeout(() => togglePanel(true), 1300);
+
+    // Browsers silently block speechSynthesis.speak() until the user has
+    // made a real gesture on the page (same policy family as audio
+    // autoplay) -- a bare setTimeout greeting shows text but never makes
+    // a sound. So also arm the very first genuine gesture (click, key,
+    // touch) to fire the spoken greeting the instant the browser allows it.
+    ["pointerdown", "click", "keydown", "touchstart"].forEach((evt) => {
+      document.addEventListener(evt, speakGreetingOnce, { once: true, capture: true });
+    });
+
+    muteBtn.addEventListener('click', () => {
+      muted = !muted;
+      muteBtn.innerHTML = muted ? '<i class="ti ti-volume-3"></i>' : '<i class="ti ti-volume"></i>';
+      if (muted && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    });
+
+    function speak(text) {
+      if (muted || !('speechSynthesis' in window)) return;
+      const clean = text.replace(/[*_`#]/g, '');
+      const utter = new SpeechSynthesisUtterance(clean);
+      utter.rate = 1.02;
+      utter.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => /female|samantha|zira|jenny/i.test(v.name)) || voices.find(v => v.lang && v.lang.startsWith('en'));
+      if (preferred) utter.voice = preferred;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+
+    async function sendMessage(text) {
+      text = (text || '').trim();
+      if (!text) return;
+      addMessage('user', text);
+      history.push({ role: 'user', content: text });
+      input.value = '';
+      const thinking = addMessage('thinking', 'FRIDAY is thinking...');
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, history }),
+        });
+        const data = await res.json();
+        thinking.remove();
+        const reply = data.reply || "I didn't get a response back.";
+        addMessage('assistant', reply);
+        history.push({ role: 'assistant', content: reply });
+        speak(reply);
+      } catch (err) {
+        thinking.remove();
+        addMessage('assistant', 'I could not reach my own backend just now: ' + err.message);
+      }
+    }
+
+    sendBtn.addEventListener('click', () => sendMessage(input.value));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(input.value);
+      }
+    });
+
+    /* Voice input via the browser's built-in SpeechRecognition (Chrome/Edge).
+       No external speech-to-text API -- entirely client-side. */
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognizing = false;
+    let recognizer = null;
+
+    if (SpeechRecognition) {
+      recognizer = new SpeechRecognition();
+      recognizer.continuous = false;
+      recognizer.interimResults = true;
+      recognizer.lang = 'en-US';
+
+      recognizer.onstart = () => {
+        recognizing = true;
+        micBtn.classList.add('listening');
+        voiceStatus.textContent = 'listening...';
+      };
+      recognizer.onresult = (event) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        input.value = transcript;
+      };
+      recognizer.onerror = () => {
+        voiceStatus.textContent = 'mic error -- try again';
+      };
+      recognizer.onend = () => {
+        recognizing = false;
+        micBtn.classList.remove('listening');
+        voiceStatus.textContent = 'chat + voice · aware of all agents';
+        if (input.value.trim()) sendMessage(input.value);
+      };
+
+      micBtn.addEventListener('click', () => {
+        if (recognizing) {
+          recognizer.stop();
+        } else {
+          if (!opened) togglePanel(true);
+          try { recognizer.start(); } catch (e) { /* already started */ }
+        }
+      });
+    } else {
+      micBtn.title = 'Voice input not supported in this browser';
+      micBtn.style.opacity = '0.35';
+      micBtn.style.cursor = 'not-allowed';
+      micBtn.addEventListener('click', () => {
+        voiceStatus.textContent = 'voice input unsupported in this browser';
+      });
+    }
+
+    // Let the proactive alert system (outside this closure) reuse the same
+    // voice -- one shared mute state, one shared speech queue.
+    window.fridaySpeak = speak;
+    window.fridayIsMuted = () => muted;
+  })();
+
+  /* ---------------------------------------------------------------------
+   * PREVIEW ONLY -- scroll-reveal for panels + the Scan/Boot/Lock switcher.
+   * Delete this whole IIFE's switcher-wiring half plus scrambleNum (keep
+   * only the chosen variant's CSS above and the plain observer) once a
+   * style is finalized.
+   * ------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------
+   * PREVIEW ONLY -- particle-burst engine for the "Assemble" variant.
+   * Inspired by a rotating glowing-wireframe reference clip: not trying
+   * to reproduce that (a 3D/WebGL motion-graphics piece), just borrowing
+   * the "materializes from converging particles" idea for panel reveals.
+   * Delete this whole IIFE + #assemble-fx canvas if Assemble isn't picked.
+   * ------------------------------------------------------------------- */
+  (function initAssembleFX() {
+    const canvas = document.getElementById('assemble-fx');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function pickPerimeterPoint(rect) {
+      const w = rect.width, h = rect.height, perim = 2 * (w + h);
+      let d = Math.random() * perim;
+      if (d < w) return { x: rect.left + d, y: rect.top };
+      d -= w;
+      if (d < h) return { x: rect.right, y: rect.top + d };
+      d -= h;
+      if (d < w) return { x: rect.right - d, y: rect.bottom };
+      d -= w;
+      return { x: rect.left, y: rect.bottom - d };
+    }
+
+    function burst(rect) {
+      const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+      const count = Math.min(70, Math.max(28, Math.round((rect.width * rect.height) / 9000)));
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 50 + Math.random() * 150;
+        const target = pickPerimeterPoint(rect);
+        particles.push({
+          x: cx + Math.cos(angle) * dist,
+          y: cy + Math.sin(angle) * dist,
+          tx: target.x,
+          ty: target.y,
+          life: 0,
+          dur: 450 + Math.random() * 300,
+          size: 1 + Math.random() * 1.8,
+        });
+      }
+    }
+
+    function tick() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles = particles.filter((p) => {
+        p.life += 16;
+        const t = Math.min(1, p.life / p.dur);
+        const ease = 1 - Math.pow(1 - t, 3);
+        const x = p.x + (p.tx - p.x) * ease;
+        const y = p.y + (p.ty - p.y) * ease;
+        const alpha = t < 0.8 ? 1 : (1 - t) / 0.2;
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(0,242,254,${alpha})`;
+        ctx.shadowColor = 'rgba(0,242,254,0.8)';
+        ctx.shadowBlur = 6;
+        ctx.arc(x, y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        return t < 1;
+      });
+      ctx.shadowBlur = 0;
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    window.triggerAssembleBurst = burst;
+  })();
+
+  (function initScrollReveal() {
+    const panels = Array.from(document.querySelectorAll('.panel'));
+
+    function scrambleNum(panel) {
+      const el = panel.querySelector('.panel-num');
+      if (!el) return;
+      const original = el.textContent;
+      let ticks = 0;
+      const iv = setInterval(() => {
+        ticks++;
+        if (ticks >= 8) {
+          clearInterval(iv);
+          el.textContent = original;
+          return;
+        }
+        el.textContent = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+      }, 45);
+    }
+
+    function armObserver() {
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const idx = panels.indexOf(entry.target);
+          const delay = (idx % 3) * 70;
+          setTimeout(() => {
+            entry.target.classList.add('in-view');
+            if (document.body.dataset.anim === 'boot') scrambleNum(entry.target);
+            if (document.body.dataset.anim === 'assemble' && window.triggerAssembleBurst) {
+              window.triggerAssembleBurst(entry.target.getBoundingClientRect());
+            }
+          }, delay);
+          obs.unobserve(entry.target);
+        });
+      }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+      panels.forEach((p) => obs.observe(p));
+      return obs;
+    }
+    let currentObserver = armObserver();
+
+    function replayAll() {
+      if (currentObserver) currentObserver.disconnect();
+      panels.forEach((p) => p.classList.remove('in-view'));
+      void document.body.offsetWidth;
+      currentObserver = armObserver();
+    }
+
+    const switcher = document.getElementById('anim-switcher');
+    if (switcher) {
+      switcher.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-anim]');
+        if (!btn) return;
+        document.body.dataset.anim = btn.dataset.anim;
+        switcher.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
+        replayAll();
+      });
+    }
+  })();
+
+  /* ---------------------------------------------------------------------
+   * Proactive alerts: FRIDAY doesn't just answer when asked -- it watches
+   * each poll for agents crossing into/out of a bad state (failed /
+   * unconfigured) and raises a toast (and speaks it, unless muted)
+   * without anyone opening the chat panel first. Baseline is the state
+   * already rendered server-side, so nothing pre-existing triggers a
+   * toast on page load -- only real transitions during this session do.
+   * ------------------------------------------------------------------- */
+  (function initAlerts() {
+    const BAD_STATES = ['failed', 'unconfigured'];
+    const ids = {{ vm.agents | map(attribute='id') | list | tojson }};
+    const states = {{ vm.agents | map(attribute='state') | list | tojson }};
+    const names = {{ vm.agents | map(attribute='name') | list | tojson }};
+    let lastState = {};
+    let lastName = {};
+    ids.forEach((id, i) => { lastState[id] = states[i]; lastName[id] = names[i]; });
+
+    const stack = document.getElementById('toast-stack');
+
+    function showToast(kind, title, text, { speakToo = false } = {}) {
+      if (!stack) return;
+      const el = document.createElement('div');
+      el.className = 'toast ' + kind;
+      const icon = kind === 'bad' ? 'ti-alert-triangle' : kind === 'good' ? 'ti-circle-check' : 'ti-alert-circle';
+      el.innerHTML =
+        '<i class="ti ' + icon + ' t-icon"></i>' +
+        '<div class="t-body"><div class="t-title">' + title + '</div><div class="t-text"></div></div>' +
+        '<button class="t-close" title="Dismiss"><i class="ti ti-x"></i></button>';
+      el.querySelector('.t-text').textContent = text;
+      const dismiss = () => {
+        el.classList.add('closing');
+        setTimeout(() => el.remove(), 260);
+      };
+      el.querySelector('.t-close').addEventListener('click', dismiss);
+      stack.appendChild(el);
+      setTimeout(dismiss, 9000);
+      if (speakToo && window.fridaySpeak && !(window.fridayIsMuted && window.fridayIsMuted())) {
+        window.fridaySpeak(text);
+      }
+    }
+
+    // Exposed so pollLive() (defined earlier in this file) can report
+    // each fresh /api/live snapshot without the two scripts needing to
+    // share any other global state.
+    window.fridayCheckTransitions = function (agents) {
+      agents.forEach((a) => {
+        const prev = lastState[a.id];
+        const wasBad = BAD_STATES.includes(prev);
+        const isBad = BAD_STATES.includes(a.state);
+        if (prev !== undefined && prev !== a.state) {
+          if (isBad && !wasBad) {
+            showToast('bad', 'Needs attention', a.name + ' just went ' + a.state + '.', { speakToo: true });
+          } else if (!isBad && wasBad) {
+            showToast('good', 'Recovered', a.name + ' is back to ' + a.state + '.', { speakToo: true });
+          }
+        }
+        lastState[a.id] = a.state;
+        lastName[a.id] = a.name;
+      });
+    };
+  })();
+</script>
+
+{% endif %}
+</body>
+</html>
