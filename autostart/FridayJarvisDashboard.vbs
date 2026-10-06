@@ -11,7 +11,7 @@ Dim shell
 Set shell = CreateObject("WScript.Shell")
 
 ' Kill anything already on port 9100 first (avoid "address in use" on relaunch)
-shell.Run "cmd /c for /f ""tokens=5"" %a in ('netstat -aon ^| find "":9100""') do taskkill /PID %a /F", 0, True
+shell.Run "cmd /c for /f ""tokens=5"" %a in ('netstat -aon ^| find "":9100 "" ^| find ""LISTENING""') do taskkill /PID %a /F", 0, True
 WScript.Sleep 1000
 
 shell.Run """C:\Users\yogendra.majjari\.claude\EPR\jarvis-dashboard\autostart\run_hidden.bat""", 0, False
