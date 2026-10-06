@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>{{ a.name if a else 'Agent' }} -- FRIDAY</title>
+{% include '_shared_head.html' %}
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="/"><i class="ti ti-arrow-left"></i> FRIDAY</a>
+    <a href="/report"><i class="ti ti-report"></i> Full overview report</a>
+  </div>
+
+  {% if error %}
+    <div class="panel"><i class="ti ti-alert-triangle" style="color:var(--red)"></i> {{ error }}</div>
+  {% else %}
+    <div class="panel">
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <i class="ti {{ a.icon or 'ti-cpu' }}" style="font-size:2rem;color:var(--b)"></i>
+        <div style="flex:1;min-width:200px">
+          <h1>{{ a.name }}</h1>
+          <div class="dim" style="font-size:.72rem;margin-top:4px">{{ a.category }}</div>
+        </div>
+        <span class="pill st-{{ a.state }}">{{ a.state }}</span>
+      </div>
+      <p style="font-size:.85rem;line-height:1.6;margin:16px 0 0">{{ a.description }}</p>
+      {% if a.value_prop %}<p class="dim" style="font-size:.78rem;margin:8px 0 0"><i class="ti ti-bulb"></i> {{ a.value_prop }}</p>{% endif %}
+    </div>
+
+    <h2>Health report</h2>
+    <div class="panel">
+      {% for kind, text in notes %}
+        <div class="note {{ kind }}"><i class="ti {{ 'ti-circle-check' if kind=='good' else 'ti-alert-triangle' if kind in ('bad','warn') else 'ti-info-circle' }}"></i><span>{{ text }}</span></div>
+      {% endfor %}
+    </div>
+
+    <h2>Overview</h2>
+    <div class="panel">
+      <dl class="kv">
+        <dt>Status</dt><dd>{{ a.state }}{% if a.port %} &middot; port {{ a.port }} {{ 'open' if a.port_open else 'closed' }}{% endif %}</dd>
+        <dt>Schedule</dt><dd>{{ a.schedule_label }}</dd>
+        <dt>Auto-start</dt><dd>{{ autostart_text }}{% if a.autostart_name %} <span class="dim">({{ a.autostart_name }})</span>{% endif %}</dd>
+        <dt>Restart from FRIDAY</dt><dd>{{ 'Yes -- say "restart ' ~ a.name ~ '" in FRIDAY chat on the desktop' if a.restartable else 'Not on the restart allowlist' }}</dd>
+        <dt>Last run</dt><dd>{{ a.last_run_at or 'No run recorded yet' }}</dd>
+        {% if a.result_counts %}<dt>Last results</dt><dd>{% for k, v in a.result_counts.items() %}{{ v }} {{ k }}{{ ', ' if not loop.last }}{% endfor %}</dd>{% endif %}
+        {% if a.url %}<dt>Dashboard</dt><dd>{% if vm.data_source == 'pushed' %}<span class="dim">{{ a.url }} (on the desktop -- not reachable from here)</span>{% else %}<a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.url }} <i class="ti ti-external-link"></i></a>{% endif %}</dd>{% endif %}
+        <dt>Integrations</dt><dd>{% for i in a.integrations %}<span class="tag">{{ i }}</span>{% else %}<span class="dim">none</span>{% endfor %}</dd>
+      </dl>
+    </div>
+
+    <div class="dim" style="font-size:.65rem">
+      {% if vm.data_source == 'pushed' %}Synced from desktop {{ vm.synced_ago }}s ago{% else %}Live from master-agent{% endif %} &middot; snapshot {{ vm.generated_at }}
+    </div>
+  {% endif %}
+</div>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Overview report -- FRIDAY</title>
+{% include '_shared_head.html' %}
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="/"><i class="ti ti-arrow-left"></i> FRIDAY</a>
+    <a href="/report.md"><i class="ti ti-markdown"></i> Download as Markdown</a>
+  </div>
+
+  {% if error %}
+    <div class="panel"><i class="ti ti-alert-triangle" style="color:var(--red)"></i> {{ error }}</div>
+  {% else %}
+    <h1>Overview report</h1>
+    <div class="dim" style="font-size:.72rem;margin:6px 0 18px">
+      {% if vm.data_source == 'pushed' %}Synced from desktop {{ vm.synced_ago }}s ago{% else %}Live from master-agent{% endif %} &middot; snapshot {{ vm.generated_at }}
+    </div>
+
+    <div class="grid">
+      <div class="tile"><b>{{ vm.total_agents }}</b><span>Agents</span></div>
+      <div class="tile"><b>{{ vm.total_workflows }}</b><span>Workflows</span></div>
+      <div class="tile"><b style="color:var(--green)">{{ vm.running }}</b><span>Running</span></div>
+      <div class="tile"><b style="color:var(--red)">{{ vm.failed }}</b><span>Failed</span></div>
+      <div class="tile"><b>{{ vm.agents|selectattr('autostart','equalto','startup')|list|length + vm.agents|selectattr('autostart','equalto','scheduled_task')|list|length }}</b><span>Auto-start on</span></div>
+    </div>
+
+    <h2>Needs attention</h2>
+    <div class="panel">
+      {% for a, notes in needs %}
+        <div style="margin:8px 0 12px">
+          <a href="/agent/{{ a.id }}"><b>{{ a.name }}</b></a> <span class="pill st-{{ a.state }}">{{ a.state }}</span>
+          {% for kind, text in notes %}<div class="note {{ kind }}"><i class="ti {{ 'ti-circle-check' if kind=='good' else 'ti-alert-triangle' if kind in ('bad','warn') else 'ti-info-circle' }}"></i><span>{{ text }}</span></div>{% endfor %}
+        </div>
+      {% else %}
+        <div class="note good"><i class="ti ti-circle-check"></i><span>Nothing needs attention.</span></div>
+      {% endfor %}
+    </div>
+
+    {% for cat, items in vm.categories.items() %}
+      <h2>{{ cat }} <span class="dim">({{ items|length }})</span></h2>
+      <div class="panel scroll">
+        <table>
+          <thead><tr><th>Agent</th><th>State</th><th>Auto-start</th><th>Schedule</th><th>Last run</th></tr></thead>
+          <tbody>
+          {% for a in items %}
+            <tr>
+              <td><a href="/agent/{{ a.id }}"><b>{{ a.name }}</b></a></td>
+              <td><span class="pill st-{{ a.state }}">{{ a.state }}</span></td>
+              <td>{{ autostart_text.get(a.autostart, a.autostart) }}</td>
+              <td>{{ a.schedule_label }}</td>
+              <td>{{ a.last_run_at or '-' }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+
+    <h2>n8n workflows <span class="dim">({{ vm.workflows|length }})</span></h2>
+    <div class="panel scroll">
+      <table>
+        <thead><tr><th>Workflow</th><th>Schedule</th><th>State</th><th>Integrations</th></tr></thead>
+        <tbody>
+        {% for w in vm.workflows %}
+          <tr>
+            <td><b>{{ w.name }}</b></td>
+            <td>{{ w.schedule_label }}</td>
+            <td><span class="pill st-{{ w.state }}">{{ w.state }}</span>{% if w.duplicate_of %} <span class="dim">duplicate of {{ w.duplicate_of }}</span>{% endif %}</td>
+            <td>{% for i in w.integrations %}<span class="tag">{{ i }}</span>{% endfor %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div class="dim" style="font-size:.65rem;margin-top:10px">Workflows run inside n8n, not as local processes, so they have no Windows auto-start of their own.</div>
+    </div>
+  {% endif %}
+</div>
+</body>
+</html>

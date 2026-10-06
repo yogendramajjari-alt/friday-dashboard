@@ -810,6 +810,7 @@
             <a href="http://127.0.0.1:9000" target="_blank" rel="noopener">Open Master Agent</a>
             {% endif %}
             <a href="#agent-table">View Live Agents</a>
+            <a href="/report">Overview Report</a>
             <a href="/api/live" target="_blank" rel="noopener">Raw JSON</a>
           </div>
         </div>
@@ -900,14 +901,15 @@
     <div class="panel-head"><span class="panel-num">13</span><i class="ti {{ vm.panel_icons['13'] }} panel-icon"></i><span class="panel-title">Live Agent Status (Full Detail)</span></div>
     <div style="overflow-x:auto;">
     <table class="agent-table">
-      <thead><tr><th>Agent</th><th>Category</th><th>Status</th><th>Schedule</th><th>Integrations</th><th>Last Run</th><th>Local Server URL</th></tr></thead>
+      <thead><tr><th>Agent</th><th>Category</th><th>Status</th><th>Schedule</th><th>Auto-start</th><th>Integrations</th><th>Last Run</th><th>Local Server URL</th></tr></thead>
       <tbody>
         {% for a in vm.agents %}
         <tr>
-          <td><b style="color:var(--text-bright)"><i class="ti {{ a.icon or 'ti-cpu' }}" style="color:var(--accent-b);margin-right:6px;"></i>{{ a.name }}</b></td>
+          <td><a href="/agent/{{ a.id }}" title="Overview &amp; health report" style="text-decoration:none"><b style="color:var(--text-bright)"><i class="ti {{ a.icon or 'ti-cpu' }}" style="color:var(--accent-b);margin-right:6px;"></i>{{ a.name }}</b></a></td>
           <td>{{ a.category }}</td>
           <td><span class="status-pill status-{{ a.state }}"><span class="d"></span>{{ a.state }}</span></td>
           <td>{{ a.schedule_label }}</td>
+          <td>{% if a.autostart == 'startup' %}<span class="status-pill status-running"><span class="d"></span>at login</span>{% elif a.autostart == 'scheduled_task' %}<span class="status-pill status-running"><span class="d"></span>sched. task</span>{% elif a.autostart == 'not_installed' %}<span class="status-pill status-idle"><span class="d"></span>not installed</span>{% else %}<span class="url-none">n/a</span>{% endif %}</td>
           <td>{% for i in a.integrations %}<span class="int-tag">{{ i }}</span>{% endfor %}</td>
           <td>{{ a.last_run_at or 'No run recorded yet' }}</td>
           <td>{% if a.url %}<a href="{{ a.url }}" target="_blank" rel="noopener" class="url-link">{{ a.url }} <i class="ti ti-external-link"></i></a>{% else %}<span class="url-none">CLI only &mdash; no server</span>{% endif %}</td>
@@ -919,6 +921,7 @@
           <td>n8n workflow</td>
           <td><span class="status-pill status-{{ w.state }}"><span class="d"></span>{{ w.state }}</span></td>
           <td>{{ w.schedule_label }}</td>
+          <td><span class="url-none">runs in n8n</span></td>
           <td>{% for i in w.integrations %}<span class="int-tag">{{ i }}</span>{% endfor %}</td>
           <td>{{ '&mdash; duplicate of ' + w.duplicate_of if w.duplicate_of else w.file }}</td>
           <td><span class="url-none">n8n workflow &mdash; no local server</span></td>

@@ -351,6 +351,106 @@ def api_live():
     return jsonify(vm)
 
 
+AUTOSTART_TEXT = {
+    "startup": "Starts automatically at login (Windows Startup folder)",
+    "scheduled_task": "Starts automatically via a Windows Scheduled Task",
+    "not_installed": "Auto-start code exists but is NOT installed -- will not survive a reboot",
+    "n/a": "Not applicable (on-demand CLI/static tool, or no local server)",
+}
+
+
+def health_notes(a):
+    """Plain-language diagnosis for one agent from the data master-agent
+    already provides -- no new checks, just reading it out loud."""
+    notes = []
+    st = a.get("state")
+    has_port = bool(a.get("port"))
+    if st == "running":
+        notes.append(("good", "Running and responding." if has_port else "Active."))
+    elif st == "failed":
+        if has_port and not a.get("port_open"):
+            notes.append(("bad", "Expected to be up but its port is closed -- needs a restart."))
+        else:
+            notes.append(("bad", "A recent error was found in its log (last 24h). If it also responds normally, "
+                                 "this can be a stale log line from an earlier restart."))
+    elif st == "idle":
+        notes.append(("info", "Not running right now." + (" This is normal for an on-demand tool." if not has_port or a.get("schedule") == "on_demand" else "")))
+    elif st == "unconfigured":
+        notes.append(("warn", "Its .env/config file is missing -- it needs real credentials before it can work."))
+    if a.get("autostart") == "not_installed":
+        notes.append(("warn", "Auto-start is not installed, so it will not come back after a reboot."))
+    if a.get("restartable") and has_port and not a.get("port_open"):
+        notes.append(("info", f"Tell FRIDAY on the desktop: \"restart {a.get('name')}\"."))
+    if not a.get("last_run_at") and st != "unconfigured":
+        notes.append(("info", "No run recorded yet."))
+    return notes
+
+
+def build_report_markdown(vm):
+    lines = [f"# FRIDAY overview report", "",
+             f"Generated from master-agent snapshot {vm['generated_at']}.",
+             f"{vm['total_agents']} agents, {vm['total_workflows']} workflows -- "
+             f"{vm['running']} running, {vm['failed']} failed.", ""]
+    for cat, items in sorted(vm["categories"].items()):
+        lines += [f"## {cat}", "", "| Agent | State | Auto-start | Schedule | Last run |", "|---|---|---|---|---|"]
+        for a in items:
+            lines.append(f"| {a['name']} | {a['state']} | {a.get('autostart', '?')} | "
+                         f"{a['schedule_label']} | {a.get('last_run_at') or '-'} |")
+        lines.append("")
+    attn = [a for a in vm["agents"] if a["state"] in ("failed", "unconfigured") or a.get("autostart") == "not_installed"]
+    lines += ["## Needs attention", ""]
+    for a in attn or []:
+        for _kind, text in health_notes(a):
+            lines.append(f"- **{a['name']}** ({a['state']}): {text}")
+    if not attn:
+        lines.append("- Nothing.")
+    lines += ["", "## n8n workflows", "", "| Workflow | Schedule | State |", "|---|---|---|"]
+    for w in vm["workflows"]:
+        lines.append(f"| {w['name']} | {w['schedule_label']} | {w['state']} |")
+    return "\n".join(lines) + "\n"
+
+
+def _vm_or_error():
+    data, err, source, synced_ago = get_dashboard_data()
+    if err:
+        return None, err
+    vm = build_view_model(data)
+    vm["data_source"], vm["synced_ago"] = source, synced_ago
+    return vm, None
+
+
+@app.route("/agent/<agent_id>")
+def agent_detail(agent_id):
+    vm, err = _vm_or_error()
+    if err:
+        return render_template("agent.html", error=err, a=None, vm=None), 502
+    a = next((x for x in vm["agents"] if x["id"] == agent_id), None)
+    if not a:
+        return render_template("agent.html", error=f"No agent with id '{agent_id}'.", a=None, vm=vm), 404
+    return render_template(
+        "agent.html", error=None, a=a, vm=vm,
+        notes=health_notes(a), autostart_text=AUTOSTART_TEXT.get(a.get("autostart"), "Unknown"),
+    )
+
+
+@app.route("/report")
+def report():
+    vm, err = _vm_or_error()
+    if err:
+        return render_template("report.html", error=err, vm=None), 502
+    needs = [(a, health_notes(a)) for a in vm["agents"]
+             if a["state"] in ("failed", "unconfigured") or a.get("autostart") == "not_installed"]
+    return render_template("report.html", error=None, vm=vm, needs=needs, autostart_text=AUTOSTART_TEXT)
+
+
+@app.route("/report.md")
+def report_md():
+    vm, err = _vm_or_error()
+    if err:
+        return err, 502
+    return build_report_markdown(vm), 200, {"Content-Type": "text/markdown; charset=utf-8"}
+
+
 @app.route("/ingest", methods=["POST"])
 def ingest():
     """Receives a master-agent /api/status snapshot pushed by this
