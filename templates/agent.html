@@ -43,7 +43,7 @@
         <dt>Restart from FRIDAY</dt><dd>{{ 'Yes -- say "restart ' ~ a.name ~ '" in FRIDAY chat on the desktop' if a.restartable else 'Not on the restart allowlist' }}</dd>
         <dt>Last run</dt><dd>{{ a.last_run_at or 'No run recorded yet' }}</dd>
         {% if a.result_counts %}<dt>Last results</dt><dd>{% for k, v in a.result_counts.items() %}{{ v }} {{ k }}{{ ', ' if not loop.last }}{% endfor %}</dd>{% endif %}
-        {% if a.url %}<dt>Dashboard</dt><dd>{% if vm.data_source == 'pushed' %}<span class="dim">{{ a.url }} (on the desktop -- not reachable from here)</span>{% else %}<a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.url }} <i class="ti ti-external-link"></i></a>{% endif %}</dd>{% endif %}
+        {% if a.url %}<dt>Dashboard</dt><dd>{% if vm.data_source == 'pushed' and not a.hosted %}<span class="dim">{{ a.url }} (on the desktop -- not reachable from here)</span>{% else %}<a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.url }} <i class="ti ti-external-link"></i></a>{% endif %}</dd>{% endif %}
         <dt>Integrations</dt><dd>{% for i in a.integrations %}<span class="tag">{{ i }}</span>{% else %}<span class="dim">none</span>{% endfor %}</dd>
       </dl>
     </div>

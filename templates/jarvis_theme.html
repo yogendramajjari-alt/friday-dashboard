@@ -909,7 +909,7 @@
           <td>{{ a.category }}</td>
           <td><span class="status-pill status-{{ a.state }}"><span class="d"></span>{{ a.state }}</span></td>
           <td>{{ a.schedule_label }}</td>
-          <td>{% if a.autostart == 'startup' %}<span class="status-pill status-running"><span class="d"></span>at login</span>{% elif a.autostart == 'scheduled_task' %}<span class="status-pill status-running"><span class="d"></span>sched. task</span>{% elif a.autostart == 'not_installed' %}<span class="status-pill status-idle"><span class="d"></span>not installed</span>{% else %}<span class="url-none">n/a</span>{% endif %}</td>
+          <td>{% if a.autostart == 'startup' %}<span class="status-pill status-running"><span class="d"></span>at login</span>{% elif a.autostart == 'scheduled_task' %}<span class="status-pill status-running"><span class="d"></span>sched. task</span>{% elif a.autostart == 'hosted' %}<span class="status-pill status-running"><span class="d"></span>always on (hosted)</span>{% elif a.autostart == 'not_installed' %}<span class="status-pill status-idle"><span class="d"></span>not installed</span>{% else %}<span class="url-none">n/a</span>{% endif %}</td>
           <td>{% for i in a.integrations %}<span class="int-tag">{{ i }}</span>{% endfor %}</td>
           <td>{{ a.last_run_at or 'No run recorded yet' }}</td>
           <td>{% if a.url %}<a href="{{ a.url }}" target="_blank" rel="noopener" class="url-link">{{ a.url }} <i class="ti ti-external-link"></i></a>{% else %}<span class="url-none">CLI only &mdash; no server</span>{% endif %}</td>

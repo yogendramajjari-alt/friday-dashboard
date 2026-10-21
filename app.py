@@ -59,6 +59,7 @@ app = Flask(__name__)
 app.jinja_env.auto_reload = True
 
 CATEGORY_ICONS = {
+    "Hosted (Vercel)": "ti-cloud-upload",
     "Lead Generation": "ti-target-arrow",
     "Database": "ti-database",
     "Intelligence": "ti-brain",
@@ -356,6 +357,7 @@ AUTOSTART_TEXT = {
     "scheduled_task": "Starts automatically via a Windows Scheduled Task",
     "not_installed": "Auto-start code exists but is NOT installed -- will not survive a reboot",
     "n/a": "Not applicable (on-demand CLI/static tool, or no local server)",
+    "hosted": "Not needed -- hosted online, always on (nothing runs on this laptop)",
 }
 
 
@@ -365,6 +367,16 @@ def health_notes(a):
     notes = []
     st = a.get("state")
     has_port = bool(a.get("port"))
+    if a.get("hosted"):
+        host = a.get("host") or "its host"
+        if st == "running":
+            notes.append(("good", f"Live on {host} -- its public URL answered the last health check."))
+        else:
+            notes.append(("bad", f"Its public URL did not answer on {host} (timeout, connection error or a 5xx). "
+                                 "Check the deployment on the host's dashboard; this can't be restarted from here."))
+        if a.get("last_run_at"):
+            notes.append(("info", f"Last deployed/updated: {a['last_run_at']}."))
+        return notes
     if st == "running":
         notes.append(("good", "Running and responding." if has_port else "Active."))
     elif st == "failed":
