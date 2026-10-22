@@ -1455,7 +1455,10 @@
           }, delay);
           obs.unobserve(entry.target);
         });
-      }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+      // threshold is 0 (not a fraction): the agent table is thousands of px
+      // tall, so a 15% threshold could never be met on a normal screen and
+      // the panel stayed invisible.
+      }, { threshold: 0, rootMargin: '0px 0px -60px 0px' });
       panels.forEach((p) => obs.observe(p));
       return obs;
     }
