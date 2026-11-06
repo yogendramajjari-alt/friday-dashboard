@@ -60,6 +60,7 @@ app.jinja_env.auto_reload = True
 
 CATEGORY_ICONS = {
     "Hosted (Vercel)": "ti-cloud-upload",
+    "Local Sites": "ti-server-bolt",
     "Lead Generation": "ti-target-arrow",
     "Database": "ti-database",
     "Intelligence": "ti-brain",
@@ -372,8 +373,9 @@ def health_notes(a):
         if st == "running":
             notes.append(("good", f"Live on {host} -- its public URL answered the last health check."))
         else:
-            notes.append(("bad", f"Its public URL did not answer on {host} (timeout, connection error or a 5xx). "
-                                 "Check the deployment on the host's dashboard; this can't be restarted from here."))
+            notes.append(("bad", f"Its public URL did not answer on {host} (timeout, connection error, a 5xx, or "
+                                 "402 Payment Required -- a free-plan block). Use the matching 'Local Sites' copy "
+                                 "on this laptop; this can't be restarted from here."))
         if a.get("last_run_at"):
             notes.append(("info", f"Last deployed/updated: {a['last_run_at']}."))
         return notes
